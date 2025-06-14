@@ -30,14 +30,21 @@ const Dashboard = () => {
     }
 
     const dateGroups = filteredData.reduce((acc, row) => {
-      const date = row.created_at.split(' ')[0];
-      acc[date] = (acc[date] || 0) + 1;
+      const date = new Date(row.created_at.split(' ')[0]);
+      const monthYear = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getFullYear()).slice(-2)}`;
+      acc[monthYear] = (acc[monthYear] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     const timeSeriesData = Object.entries(dateGroups)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-30)
+      .sort(([a], [b]) => {
+        // Sort by year then month for proper chronological order
+        const [monthA, yearA] = a.split('/');
+        const [monthB, yearB] = b.split('/');
+        const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1);
+        const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1);
+        return dateA.getTime() - dateB.getTime();
+      })
       .map(([date, count]) => ({
         name: date,
         reviews: count,

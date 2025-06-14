@@ -96,32 +96,62 @@ const EnhancedAnomalyTable = () => {
       return [];
     }
 
-    const detectedAnomalies = SentimentAnalyzer.detectAnomalies(cleanedData);
-    
-    return detectedAnomalies.map(anomaly => {
-      const originalRow = cleanedData.find(row => row.review_id === anomaly.review_id);
-      if (!originalRow) return null;
-
-      const sentiment = SentimentAnalyzer.analyzeSentiment(originalRow.raw_text);
+    // Calculate anomaly scores for all reviews and filter by threshold > 0.8
+    const reviewsWithScores = cleanedData.map(row => {
+      const sentiment = SentimentAnalyzer.analyzeSentiment(row.raw_text);
       
       // Calculate enhanced anomaly score: (sentiment_deviation * 0.7) + (language_risk * 0.3)
       const avgSentiment = 0.6; // Average baseline sentiment
       const sentimentDeviation = Math.abs(sentiment.score - avgSentiment);
-      const languageRisk = originalRow.language !== 'en' ? 0.8 : 0.2;
+      const languageRisk = row.language !== 'en' ? 0.8 : 0.2;
       const anomaly_score = Math.min(1.0, (sentimentDeviation * 0.7) + (languageRisk * 0.3));
 
       return {
-        review_id: anomaly.review_id,
-        sentiment_score: Number(((sentiment.score + 1) / 2).toFixed(3)), // Normalize to 0-1
-        anomaly_score: Number(anomaly_score.toFixed(3)),
-        raw_text: originalRow.raw_text,
-        neighbourhood: anomaly.neighbourhood,
-        created_at: anomaly.created_at,
-        anomaly_type: anomaly.type,
-        reason: anomaly.reason,
-        detailedReason: generateDetailedReason(anomaly, originalRow, sentiment)
+        ...row,
+        sentiment,
+        anomaly_score
+      };
+    });
+
+    // Filter only reviews with anomaly score > 0.8
+    const trueAnomalies = reviewsWithScores.filter(row => row.anomaly_score > 0.8);
+    
+    return trueAnomalies.map(row => {
+      const text = row.raw_text.toLowerCase();
+      
+      // Determine anomaly type based on content
+      let type: 'suspicious' | 'complaint' | 'language' = 'suspicious';
+      let reason = 'High anomaly score';
+
+      // Check for complaints first
+      const complaintKeywords = ['dirty', 'clean', 'smell', 'noise', 'broken', 'uncomfortable', 'rude', 'terrible'];
+      if (complaintKeywords.some(keyword => text.includes(keyword))) {
+        type = 'complaint';
+        reason = 'Contains complaint keywords';
+      }
+      // Check for language issues
+      else if (row.language !== 'en') {
+        type = 'language';
+        reason = `Non-English content (${row.language})`;
+      }
+      // Check for suspicious patterns
+      else if (text.length < 20 || /(.)\1{3,}/.test(text)) {
+        type = 'suspicious';
+        reason = 'Repetitive or too short';
+      }
+
+      return {
+        review_id: row.review_id,
+        sentiment_score: Number(((row.sentiment.score + 1) / 2).toFixed(3)), // Normalize to 0-1
+        anomaly_score: Number(row.anomaly_score.toFixed(3)),
+        raw_text: row.raw_text,
+        neighbourhood: row.neighbourhood,
+        created_at: row.created_at,
+        anomaly_type: type,
+        reason: reason,
+        detailedReason: generateDetailedReason({ type, reason }, row, row.sentiment)
       } as EnhancedAnomaly;
-    }).filter(Boolean) as EnhancedAnomaly[];
+    });
   }, [cleanedData, isDataReady]);
 
   const filteredAndSortedAnomalies = useMemo(() => {
@@ -160,22 +190,11 @@ const EnhancedAnomalyTable = () => {
       return [];
     }
 
-    // Calculate neighbourhood frequency for better dropdown management (same logic as Dashboard)
-    const neighbourhoodCounts = cleanedData.reduce((acc, row) => {
-      const neighbourhood = row.neighbourhood;
-      if (neighbourhood && neighbourhood.trim() !== '') {
-        acc[neighbourhood] = (acc[neighbourhood] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<string, number>);
-
-    const topNeighbourhoods = Object.entries(neighbourhoodCounts)
-      .sort(([,a], [,b]) => b - a) // Sort by frequency descending
-      .slice(0, 15) // Top 15 most frequent
-      .map(([neighbourhood]) => neighbourhood)
-      .sort(); // Then sort alphabetically for display
-
-    return topNeighbourhoods;
+    // Get all distinct neighbourhoods from the uploaded CSV data (same logic as Dashboard)
+    return [...new Set(cleanedData
+      .map(row => row.neighbourhood)
+      .filter(neighbourhood => neighbourhood && neighbourhood.trim() !== '')
+    )].sort(); // Sort alphabetically for better UX
   }, [cleanedData, isDataReady]);
 
   const handleSort = (field: 'anomaly_score' | 'sentiment_score') => {

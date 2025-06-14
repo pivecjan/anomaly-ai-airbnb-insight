@@ -1,4 +1,3 @@
-
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,14 +14,67 @@ const AnomalyInsights = () => {
       return null;
     }
 
-    const anomalies = SentimentAnalyzer.detectAnomalies(cleanedData);
-    
-    const typeGroups = anomalies.reduce((acc, anomaly) => {
+    // Calculate anomaly scores for all reviews using the same logic as EnhancedAnomalyTable
+    const reviewsWithScores = cleanedData.map(row => {
+      const sentiment = SentimentAnalyzer.analyzeSentiment(row.raw_text);
+      
+      // Calculate enhanced anomaly score: (sentiment_deviation * 0.7) + (language_risk * 0.3)
+      const avgSentiment = 0.6; // Average baseline sentiment
+      const sentimentDeviation = Math.abs(sentiment.score - avgSentiment);
+      const languageRisk = row.language !== 'en' ? 0.8 : 0.2;
+      const anomaly_score = Math.min(1.0, (sentimentDeviation * 0.7) + (languageRisk * 0.3));
+
+      return {
+        ...row,
+        anomaly_score,
+        sentiment
+      };
+    });
+
+    // Filter only reviews with anomaly score > 0.8
+    const trueAnomalies = reviewsWithScores.filter(row => row.anomaly_score > 0.8);
+
+    // Classify anomalies by type based on content analysis
+    const classifiedAnomalies: AnomalyMetadata[] = trueAnomalies.map(row => {
+      const text = row.raw_text.toLowerCase();
+      
+      // Determine anomaly type based on content
+      let type: 'suspicious' | 'complaint' | 'language' = 'suspicious';
+      let reason = 'High anomaly score';
+
+      // Check for complaints first
+      const complaintKeywords = ['dirty', 'clean', 'smell', 'noise', 'broken', 'uncomfortable', 'rude', 'terrible'];
+      if (complaintKeywords.some(keyword => text.includes(keyword))) {
+        type = 'complaint';
+        reason = 'Contains complaint keywords';
+      }
+      // Check for language issues
+      else if (row.language !== 'en') {
+        type = 'language';
+        reason = `Non-English content (${row.language})`;
+      }
+      // Check for suspicious patterns
+      else if (text.length < 20 || /(.)\1{3,}/.test(text)) {
+        type = 'suspicious';
+        reason = 'Repetitive or too short';
+      }
+
+      return {
+        review_id: row.review_id,
+        type,
+        reason,
+        example: row.raw_text.substring(0, 50) + '...',
+        neighbourhood: row.neighbourhood,
+        created_at: row.created_at
+      };
+    });
+
+    const typeGroups = classifiedAnomalies.reduce((acc, anomaly) => {
       acc[anomaly.type] = (acc[anomaly.type] || []).concat(anomaly);
       return acc;
     }, {} as Record<string, AnomalyMetadata[]>);
 
-    const neighbourhoodGroups = anomalies.reduce((acc, anomaly) => {
+    const neighbourhoodGroups = classifiedAnomalies.reduce((acc, anomaly) => {
       acc[anomaly.neighbourhood] = (acc[anomaly.neighbourhood] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -32,10 +84,10 @@ const AnomalyInsights = () => {
       .slice(0, 3);
 
     return {
-      totalAnomalies: anomalies.length,
+      totalAnomalies: classifiedAnomalies.length,
       typeGroups,
       topNeighbourhoods,
-      percentage: ((anomalies.length / cleanedData.length) * 100).toFixed(1)
+      percentage: ((classifiedAnomalies.length / cleanedData.length) * 100).toFixed(1)
     };
   }, [cleanedData, isDataReady]);
 

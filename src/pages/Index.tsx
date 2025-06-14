@@ -230,8 +230,8 @@ const Index = () => {
 
             <TabsContent value="anomalies">
               <div className="space-y-6">
-                <EnhancedAnomalyTable />
                 <AnomalyInsights />
+                <EnhancedAnomalyTable />
               </div>
             </TabsContent>
 

@@ -64,20 +64,11 @@ const Dashboard = () => {
 
     const anomalyCount = Math.floor(filteredData.length * 0.05);
 
-    // Calculate neighbourhood frequency for better dropdown management
-    const neighbourhoodCounts = cleanedData.reduce((acc, row) => {
-      const neighbourhood = row.neighbourhood;
-      if (neighbourhood && neighbourhood.trim() !== '') {
-        acc[neighbourhood] = (acc[neighbourhood] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<string, number>);
-
-    const topNeighbourhoods = Object.entries(neighbourhoodCounts)
-      .sort(([,a], [,b]) => b - a) // Sort by frequency descending
-      .slice(0, 15) // Top 15 most frequent
-      .map(([neighbourhood]) => neighbourhood)
-      .sort(); // Then sort alphabetically for display
+    // Get all distinct neighbourhoods from the uploaded CSV data
+    const allNeighbourhoods = [...new Set(cleanedData
+      .map(row => row.neighbourhood)
+      .filter(neighbourhood => neighbourhood && neighbourhood.trim() !== '')
+    )].sort(); // Sort alphabetically for better UX
 
     return {
       filteredData,
@@ -85,7 +76,7 @@ const Dashboard = () => {
       anomalyCount,
       timeSeriesData,
       languageData,
-      neighbourhoods: topNeighbourhoods,
+      neighbourhoods: allNeighbourhoods,
       languages: [...new Set(cleanedData.map(row => row.language).filter(l => l && l.trim() !== ''))]
     };
   }, [cleanedData, isDataReady, selectedNeighbourhood, selectedLanguage]);

@@ -125,28 +125,30 @@ const CompactCSVUpload = () => {
   return (
     <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
       <CardContent className="p-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Upload className="w-4 h-4 text-slate-600" />
-            <span className="text-sm font-medium">Data Upload</span>
+        <div className="space-y-3">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Upload className="w-4 h-4 text-slate-600" />
+              <span className="text-sm font-medium">Data Upload</span>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => document.getElementById('compact-file-input')?.click()}
+              disabled={isProcessing}
+            >
+              Choose CSV File
+            </Button>
+            
+            <input
+              id="compact-file-input"
+              type="file"
+              accept=".csv"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
           </div>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => document.getElementById('compact-file-input')?.click()}
-            disabled={isProcessing}
-          >
-            Choose CSV File
-          </Button>
-          
-          <input
-            id="compact-file-input"
-            type="file"
-            accept=".csv"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
 
           {validationStatus === 'valid' && cleanedData.length > 0 && (
             <div className="flex items-center gap-2 text-sm">

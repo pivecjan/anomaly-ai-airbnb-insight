@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +8,8 @@ import { Brain, BarChart3, Database, Code, Palette, Play, AlertTriangle, FileTex
 import AgentCard from "@/components/AgentCard";
 import Dashboard from "@/components/Dashboard";
 import DataPreview from "@/components/DataPreview";
-import AnomalyDetection from "@/components/AnomalyDetection";
-import CSVUpload from "@/components/CSVUpload";
+import EnhancedAnomalyDetection from "@/components/EnhancedAnomalyDetection";
+import CompactCSVUpload from "@/components/CompactCSVUpload";
 import StorytellerInsights from "@/components/StorytellerInsights";
 import { useToast } from "@/hooks/use-toast";
 import { useCSVDataStore } from "@/store/csvDataStore";
@@ -93,7 +92,6 @@ const Index = () => {
     setIsAnalyzing(true);
     setAnalysisProgress(0);
     
-    // Enhanced agent workflow for CSV processing
     const steps = [
       { agent: "engineer", message: "Validating CSV structure and parsing dates...", progress: 15 },
       { agent: "engineer", message: "Cleaning data and removing duplicates...", progress: 25 },
@@ -137,8 +135,8 @@ const Index = () => {
           </Badge>
         </div>
 
-        {/* CSV Upload Section */}
-        <CSVUpload />
+        {/* Compact CSV Upload Section */}
+        <CompactCSVUpload />
 
         {/* Analysis Controls */}
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
@@ -233,7 +231,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="anomalies">
-            <AnomalyDetection />
+            <EnhancedAnomalyDetection />
           </TabsContent>
 
           <TabsContent value="insights">

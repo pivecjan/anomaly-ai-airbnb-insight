@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, MapPin, Calendar, AlertTriangle, FileText } from "lucide-react";
 import { useCSVDataStore } from "@/store/csvDataStore";
+import SentimentMetric from "./SentimentMetric";
 
 const Dashboard = () => {
   const { cleanedData, isDataReady } = useCSVDataStore();
@@ -15,13 +15,11 @@ const Dashboard = () => {
   const [dateRange, setDateRange] = useState([0, 100]);
   const [selectedLanguage, setSelectedLanguage] = useState("all");
 
-  // Generate analytics from real CSV data
   const analytics = useMemo(() => {
     if (!isDataReady || cleanedData.length === 0) {
       return null;
     }
 
-    // Filter data based on selections
     let filteredData = cleanedData;
     
     if (selectedNeighbourhood !== "all") {
@@ -32,23 +30,21 @@ const Dashboard = () => {
       filteredData = filteredData.filter(row => row.language === selectedLanguage);
     }
 
-    // Generate time series data
     const dateGroups = filteredData.reduce((acc, row) => {
-      const date = row.created_at.split(' ')[0]; // Get date part
+      const date = row.created_at.split(' ')[0];
       acc[date] = (acc[date] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     const timeSeriesData = Object.entries(dateGroups)
       .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-30) // Last 30 days
+      .slice(-30)
       .map(([date, count]) => ({
         name: date,
         reviews: count,
         date
       }));
 
-    // Generate language distribution
     const languageGroups = filteredData.reduce((acc, row) => {
       acc[row.language] = (acc[row.language] || 0) + 1;
       return acc;
@@ -60,13 +56,10 @@ const Dashboard = () => {
       percentage: ((count / filteredData.length) * 100).toFixed(1)
     }));
 
-    // Calculate metrics
-    const avgSentiment = 4.2; // Mock sentiment - would need NLP processing
-    const anomalyCount = Math.floor(filteredData.length * 0.05); // 5% anomaly rate
+    const anomalyCount = Math.floor(filteredData.length * 0.05);
 
     return {
       totalReviews: filteredData.length,
-      avgSentiment,
       anomalyCount,
       timeSeriesData,
       languageData,
@@ -137,7 +130,7 @@ const Dashboard = () => {
       </Card>
 
       {/* Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           <CardContent className="flex items-center justify-between p-6">
             <div>
@@ -150,13 +143,15 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
+        <SentimentMetric />
+
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           <CardContent className="flex items-center justify-between p-6">
             <div>
-              <p className="text-sm text-slate-600">Avg. Sentiment</p>
-              <p className="text-2xl font-bold text-slate-800">{analytics?.avgSentiment} / 5</p>
+              <p className="text-sm text-slate-600">Neighbourhoods</p>
+              <p className="text-2xl font-bold text-slate-800">{analytics?.neighbourhoods.length}</p>
             </div>
-            <div className="w-12 h-12 rounded-full bg-green-100 text-green-500 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-500 flex items-center justify-center">
               <MapPin className="w-6 h-6" />
             </div>
           </CardContent>

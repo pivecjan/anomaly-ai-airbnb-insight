@@ -4,61 +4,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, ChevronRight, Upload, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Upload, LucideIcon } from "lucide-react";
 import { useCSVDataStore } from "@/store/csvDataStore";
 import CompactCSVUpload from "./CompactCSVUpload";
 
-const DataSidebar = () => {
+interface Agent {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+  icon: LucideIcon;
+  status: string;
+  color: string;
+}
+
+interface DataSidebarProps {
+  agents?: Agent[];
+  isAnalyzing?: boolean;
+}
+
+const DataSidebar = ({ agents = [], isAnalyzing = false }: DataSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { cleanedData, isDataReady, preprocessingReport } = useCSVDataStore();
 
-  const agents = [
-    {
-      name: "Data Engineer",
-      status: isDataReady ? "complete" : "idle",
-      message: isDataReady ? `Processed ${cleanedData.length.toLocaleString()} rows` : "Ready to process CSV",
-      progress: isDataReady ? 100 : 0
-    },
-    {
-      name: "Data Scientist",
-      status: isDataReady ? "complete" : "idle",
-      message: isDataReady ? "Anomaly analysis complete" : "Waiting for data",
-      progress: isDataReady ? 100 : 0
-    },
-    {
-      name: "Analytical Agent",
-      status: isDataReady ? "complete" : "idle",
-      message: isDataReady ? "Sentiment analysis complete" : "Waiting for data",
-      progress: isDataReady ? 100 : 0
-    }
-  ];
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "complete":
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case "processing":
-        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
-      case "warning":
-        return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
-      default:
-        return <div className="w-4 h-4 rounded-full bg-gray-300" />;
-    }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
   return (
-    <div className={`bg-white border-r transition-all duration-300 ${isCollapsed ? 'w-12' : 'w-80'} flex flex-col`}>
-      <div className="p-2 border-b flex justify-between items-center">
+    <div className={`bg-white border-r transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-96'} flex flex-col`}>
+      <div className="p-3 border-b flex justify-between items-center">
         {!isCollapsed && (
-          <h2 className="font-semibold text-lg">Data Control</h2>
+          <h2 className="font-semibold text-lg">AI Agents & Data</h2>
         )}
         <Button
           variant="ghost"
@@ -91,44 +64,56 @@ const DataSidebar = () => {
             </CardContent>
           </Card>
 
-          {/* Agent Status Section */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Agent Status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {agents.map((agent, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(agent.status)}
-                      <span className="text-xs font-medium">{agent.name}</span>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      {agent.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-gray-600">{agent.message}</p>
-                  {agent.progress > 0 && agent.progress < 100 && (
-                    <Progress value={agent.progress} className="h-1" />
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          {/* Agent Cards Section */}
+          {agents.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-700 px-2">AI Agents</h3>
+              {agents.map((agent) => {
+                const IconComponent = agent.icon;
+                return (
+                  <Card key={agent.id} className={`bg-white/90 backdrop-blur-sm border shadow-sm transition-all duration-300 hover:shadow-md ${
+                    isAnalyzing ? 'ring-1 ring-blue-300' : ''
+                  }`}>
+                    <CardContent className="p-3">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-lg ${agent.color} flex items-center justify-center flex-shrink-0`}>
+                          <IconComponent className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="text-sm font-medium text-slate-800 truncate">{agent.name}</h4>
+                            <Badge variant={agent.status === 'ready' ? 'default' : 'secondary'} className="text-xs ml-2">
+                              {isAnalyzing ? 'Active' : agent.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-600 font-medium mb-1">{agent.role}</p>
+                          <p className="text-xs text-slate-500 leading-tight">{agent.description}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {isCollapsed && (
         <div className="flex-1 p-2 space-y-2">
-          <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
             <Upload className="w-4 h-4 text-blue-600" />
           </div>
-          {agents.map((agent, index) => (
-            <div key={index} className="w-8 h-8 rounded flex items-center justify-center">
-              {getStatusIcon(agent.status)}
-            </div>
-          ))}
+          {agents.map((agent) => {
+            const IconComponent = agent.icon;
+            return (
+              <div key={agent.id} className={`w-10 h-10 rounded-lg ${agent.color} flex items-center justify-center ${
+                isAnalyzing ? 'ring-1 ring-blue-300' : ''
+              }`}>
+                <IconComponent className="w-4 h-4 text-white" />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

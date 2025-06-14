@@ -122,8 +122,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
-      {/* Left Sidebar */}
-      <DataSidebar />
+      {/* Left Sidebar with Agents */}
+      <DataSidebar agents={agents} isAnalyzing={isAnalyzing} />
       
       {/* Main Content */}
       <div className="flex-1 p-6">
@@ -173,13 +173,6 @@ const Index = () => {
               </div>
             </CardContent>
           </Card>
-
-          {/* Agents Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {agents.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} isActive={isAnalyzing} />
-            ))}
-          </div>
 
           {/* Main Content Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

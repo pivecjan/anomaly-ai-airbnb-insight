@@ -73,6 +73,7 @@ const Dashboard = () => {
       .sort(); // Then sort alphabetically for display
 
     return {
+      filteredData,
       totalReviews: filteredData.length,
       anomalyCount,
       timeSeriesData,
@@ -147,7 +148,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <SentimentMetric />
+        <SentimentMetric filteredData={analytics?.filteredData || []} />
 
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           <CardContent className="flex items-center justify-between p-6">

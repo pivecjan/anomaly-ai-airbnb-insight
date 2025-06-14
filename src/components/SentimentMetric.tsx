@@ -1,20 +1,21 @@
-
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { useCSVDataStore } from "@/store/csvDataStore";
 import { SentimentAnalyzer } from "@/utils/sentimentAnalysis";
+import { CleanedRow } from "@/utils/dataPreprocessing";
 
-const SentimentMetric = () => {
-  const { cleanedData, isDataReady } = useCSVDataStore();
+interface SentimentMetricProps {
+  filteredData: CleanedRow[];
+}
 
+const SentimentMetric = ({ filteredData }: SentimentMetricProps) => {
   const sentimentData = useMemo(() => {
-    if (!isDataReady || cleanedData.length === 0) {
+    if (!filteredData || filteredData.length === 0) {
       return null;
     }
 
-    const texts = cleanedData.map(row => row.raw_text);
+    const texts = filteredData.map(row => row.raw_text);
     const avgSentiment = SentimentAnalyzer.calculateAverageSentiment(texts);
     
     // Convert to 0-1 scale for display
@@ -26,9 +27,9 @@ const SentimentMetric = () => {
       magnitude: avgSentiment.magnitude,
       rawScore: avgSentiment.score
     };
-  }, [cleanedData, isDataReady]);
+  }, [filteredData]);
 
-  if (!isDataReady || !sentimentData) {
+  if (!sentimentData) {
     return (
       <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
         <CardContent className="p-6">

@@ -3,62 +3,83 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Database, FileText, BarChart3 } from "lucide-react";
+import { Download, Database, FileText, BarChart3, Calendar, MapPin, Languages, MessageSquare } from "lucide-react";
 
-const DataPreview = () => {
-  const sampleData = [
+interface DataPreviewProps {
+  csvData?: any[];
+}
+
+const DataPreview = ({ csvData }: DataPreviewProps) => {
+  // If no CSV data, show mock data
+  const sampleData = csvData?.slice(0, 10) || [
     {
-      id: "1",
+      review_id: "1",
       listing_id: "2539",
-      date: "2023-05-14",
-      reviewer_name: "John",
-      comment: "Amazing place! Clean, comfortable, and great location. Host was very responsive.",
-      sentiment_score: 0.92,
-      anomaly_flag: false
+      neighbourhood: "Manhattan",
+      created_at: "2023-05-14",
+      language: "en",
+      raw_text: "Amazing place! Clean, comfortable, and great location. Host was very responsive."
     },
     {
-      id: "2",
+      review_id: "2",
       listing_id: "2539",
-      date: "2023-05-12",
-      reviewer_name: "Sarah",
-      comment: "Perfect stay! Everything was exactly as described. Highly recommend!",
-      sentiment_score: 0.95,
-      anomaly_flag: false
+      neighbourhood: "Manhattan", 
+      created_at: "2023-05-12",
+      language: "en",
+      raw_text: "Perfect stay! Everything was exactly as described. Highly recommend!"
     },
     {
-      id: "3",
+      review_id: "3",
       listing_id: "3831",
-      date: "2023-05-10",
-      reviewer_name: "Mike",
-      comment: "Good location but the apartment was dirty and not as shown in photos.",
-      sentiment_score: -0.45,
-      anomaly_flag: false
+      neighbourhood: "Brooklyn",
+      created_at: "2023-05-10",
+      language: "en",
+      raw_text: "Good location but the apartment was dirty and not as shown in photos."
     },
     {
-      id: "4",
+      review_id: "4",
       listing_id: "5648",
-      date: "2023-05-09",
-      reviewer_name: "bot_user_123",
-      comment: "This is the best place ever! Amazing! Perfect! Incredible! Best host ever!",
-      sentiment_score: 0.98,
-      anomaly_flag: true
+      neighbourhood: "Queens",
+      created_at: "2023-05-09",
+      language: "en",
+      raw_text: "This is the best place ever! Amazing! Perfect! Incredible! Best host ever!"
     },
     {
-      id: "5",
+      review_id: "5",
       listing_id: "7291",
-      date: "2023-05-08",
-      reviewer_name: "Emma",
-      comment: "Nice apartment with good amenities. The host was helpful.",
-      sentiment_score: 0.75,
-      anomaly_flag: false
+      neighbourhood: "Brooklyn",
+      created_at: "2023-05-08",
+      language: "es",
+      raw_text: "Apartamento agradable con buenas comodidades. El anfitrión fue muy útil."
     }
   ];
 
+  // Calculate statistics from actual or mock data
+  const calculateStats = (data: any[]) => {
+    const totalRecords = data.length;
+    const uniqueListings = new Set(data.map(item => item.listing_id)).size;
+    const uniqueNeighbourhoods = new Set(data.map(item => item.neighbourhood)).size;
+    const languageDistribution = data.reduce((acc, item) => {
+      acc[item.language] = (acc[item.language] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      totalRecords,
+      uniqueListings,
+      uniqueNeighbourhoods,
+      languages: Object.keys(languageDistribution).length,
+      languageDistribution
+    };
+  };
+
+  const stats = calculateStats(csvData || sampleData);
+
   const dataStats = [
-    { label: "Total Records", value: "15,642", icon: Database },
-    { label: "Text Reviews", value: "14,892", icon: FileText },
-    { label: "Anomalies Found", value: "137", icon: BarChart3 },
-    { label: "Data Sources", value: "5 Cities", icon: Download }
+    { label: "Total Reviews", value: stats.totalRecords.toLocaleString(), icon: MessageSquare },
+    { label: "Unique Listings", value: stats.uniqueListings.toString(), icon: Database },
+    { label: "Neighbourhoods", value: stats.uniqueNeighbourhoods.toString(), icon: MapPin },
+    { label: "Languages", value: stats.languages.toString(), icon: Languages }
   ];
 
   return (
@@ -85,11 +106,34 @@ const DataPreview = () => {
         })}
       </div>
 
-      {/* Data Source Information */}
+      {/* Language Distribution */}
+      <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Languages className="w-5 h-5" />
+            Language Distribution
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(stats.languageDistribution).map(([lang, count]) => (
+              <div key={lang} className="text-center p-3 bg-slate-50 rounded-lg">
+                <div className="text-2xl font-bold text-slate-800">{count}</div>
+                <div className="text-sm text-slate-600">{lang.toUpperCase()}</div>
+                <div className="text-xs text-slate-500">
+                  {((count / stats.totalRecords) * 100).toFixed(1)}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dataset Information */}
       <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Airbnb Dataset Information</span>
+            <span>CSV Dataset Structure</span>
             <Button variant="outline" size="sm">
               <Download className="w-4 h-4 mr-2" />
               Export Data
@@ -99,23 +143,25 @@ const DataPreview = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="font-semibold mb-3">Data Sources</h3>
+              <h3 className="font-semibold mb-3">Required CSV Fields</h3>
               <ul className="space-y-2 text-sm text-slate-600">
-                <li>• Inside Airbnb - New York City (latest)</li>
-                <li>• Inside Airbnb - Los Angeles (latest)</li>
-                <li>• Inside Airbnb - Chicago (latest)</li>
-                <li>• Inside Airbnb - Miami (latest)</li>
-                <li>• Inside Airbnb - San Francisco (latest)</li>
+                <li>• <strong>review_id:</strong> Unique identifier for each review</li>
+                <li>• <strong>listing_id:</strong> Property identifier for grouping</li>
+                <li>• <strong>neighbourhood:</strong> Geographic location data</li>
+                <li>• <strong>created_at:</strong> Timestamp for temporal analysis</li>
+                <li>• <strong>language:</strong> Language code (en, es, fr, etc.)</li>
+                <li>• <strong>raw_text:</strong> Review content for text analysis</li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-3">Data Fields</h3>
+              <h3 className="font-semibold mb-3">Analysis Capabilities</h3>
               <ul className="space-y-2 text-sm text-slate-600">
-                <li>• Listing ID, Date, Reviewer Name</li>
-                <li>• Review Comments (text)</li>
-                <li>• Sentiment Scores (calculated)</li>
-                <li>• Anomaly Flags (ML detected)</li>
-                <li>• Geographic Information</li>
+                <li>• Time-series anomaly detection</li>
+                <li>• Geographic clustering analysis</li>
+                <li>• Multi-language sentiment processing</li>
+                <li>• Fake review pattern recognition</li>
+                <li>• Neighbourhood sentiment mapping</li>
+                <li>• Review burst identification</li>
               </ul>
             </div>
           </div>
@@ -125,45 +171,61 @@ const DataPreview = () => {
       {/* Data Preview Table */}
       <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
         <CardHeader>
-          <CardTitle>Sample Review Data</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Sample Data Preview
+            {!csvData && (
+              <Badge variant="outline" className="ml-2">Mock Data</Badge>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Review ID</TableHead>
                   <TableHead>Listing ID</TableHead>
+                  <TableHead>Neighbourhood</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Reviewer</TableHead>
-                  <TableHead>Comment</TableHead>
-                  <TableHead>Sentiment</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Language</TableHead>
+                  <TableHead>Review Text</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sampleData.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="font-medium">{row.listing_id}</TableCell>
-                    <TableCell>{row.date}</TableCell>
-                    <TableCell>{row.reviewer_name}</TableCell>
-                    <TableCell className="max-w-xs truncate">{row.comment}</TableCell>
+                {sampleData.map((row, index) => (
+                  <TableRow key={row.review_id || index}>
+                    <TableCell className="font-medium">{row.review_id}</TableCell>
+                    <TableCell>{row.listing_id}</TableCell>
                     <TableCell>
-                      <Badge variant={row.sentiment_score > 0.5 ? 'default' : row.sentiment_score > 0 ? 'secondary' : 'destructive'}>
-                        {row.sentiment_score.toFixed(2)}
-                      </Badge>
+                      <Badge variant="outline">{row.neighbourhood}</Badge>
                     </TableCell>
                     <TableCell>
-                      {row.anomaly_flag ? (
-                        <Badge variant="destructive">Anomaly</Badge>
-                      ) : (
-                        <Badge variant="outline">Normal</Badge>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {row.created_at}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={row.language === 'en' ? 'default' : 'secondary'}>
+                        {row.language.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-xs">
+                      <div className="truncate" title={row.raw_text}>
+                        {row.raw_text}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+          {csvData && csvData.length > 10 && (
+            <div className="mt-4 text-center text-sm text-slate-600">
+              Showing first 10 of {csvData.length.toLocaleString()} total reviews
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

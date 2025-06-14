@@ -5,17 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, BarChart3, Database, Code, Palette, Play, AlertTriangle } from "lucide-react";
+import { Brain, BarChart3, Database, Code, Palette, Play, AlertTriangle, FileText } from "lucide-react";
 import AgentCard from "@/components/AgentCard";
 import Dashboard from "@/components/Dashboard";
 import DataPreview from "@/components/DataPreview";
 import AnomalyDetection from "@/components/AnomalyDetection";
+import CSVUpload from "@/components/CSVUpload";
+import StorytellerInsights from "@/components/StorytellerInsights";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [csvData, setCsvData] = useState(null);
   const { toast } = useToast();
 
   const agents = [
@@ -29,10 +32,19 @@ const Index = () => {
       color: "bg-blue-500"
     },
     {
+      id: "storyteller",
+      name: "Storyteller Agent",
+      role: "Insight Generator",
+      description: "Creates human-readable insights and narratives from analysis results",
+      icon: FileText,
+      status: "ready",
+      color: "bg-indigo-500"
+    },
+    {
       id: "creative",
       name: "Creative Agent",
       role: "Dashboard Designer",
-      description: "Creates beautiful visualizations and user interfaces",
+      description: "Creates beautiful visualizations with time filters and neighbourhood selectors",
       icon: Palette,
       status: "ready",
       color: "bg-purple-500"
@@ -41,7 +53,7 @@ const Index = () => {
       id: "analytical",
       name: "Analytical Agent",
       role: "Data Analyst",
-      description: "Explores data patterns and generates insights",
+      description: "Analyzes review trends, sentiment by neighbourhood, and language distribution",
       icon: BarChart3,
       status: "ready",
       color: "bg-green-500"
@@ -50,7 +62,7 @@ const Index = () => {
       id: "scientist",
       name: "Data Scientist Agent",
       role: "ML Engineer",
-      description: "Implements anomaly detection algorithms",
+      description: "Detects fake reviews, complaint analysis, and anomalous review bursts",
       icon: Code,
       status: "ready",
       color: "bg-orange-500"
@@ -59,7 +71,7 @@ const Index = () => {
       id: "engineer",
       name: "Data Engineer Agent",
       role: "Data Pipeline",
-      description: "Downloads and preprocesses Airbnb datasets",
+      description: "Validates CSV structure, parses dates, and handles language detection",
       icon: Database,
       status: "ready",
       color: "bg-teal-500"
@@ -67,21 +79,34 @@ const Index = () => {
   ];
 
   const startAnalysis = async () => {
+    if (!csvData) {
+      toast({
+        title: "No Data Found",
+        description: "Please upload a CSV file first to begin analysis.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysisProgress(0);
     
-    // Simulate agent workflow
+    // Enhanced agent workflow for CSV processing
     const steps = [
-      { agent: "engineer", message: "Downloading Airbnb dataset...", progress: 20 },
-      { agent: "engineer", message: "Preprocessing review data...", progress: 35 },
-      { agent: "analytical", message: "Exploring data patterns...", progress: 50 },
-      { agent: "scientist", message: "Training anomaly detection model...", progress: 70 },
-      { agent: "creative", message: "Generating visualizations...", progress: 85 },
-      { agent: "lead", message: "Analysis complete!", progress: 100 }
+      { agent: "engineer", message: "Validating CSV structure and parsing dates...", progress: 15 },
+      { agent: "engineer", message: "Grouping reviews by listing_id and neighbourhood...", progress: 25 },
+      { agent: "engineer", message: "Detecting language distribution...", progress: 35 },
+      { agent: "analytical", message: "Analyzing review volume trends over time...", progress: 45 },
+      { agent: "analytical", message: "Computing sentiment distribution by neighbourhood...", progress: 55 },
+      { agent: "scientist", message: "Detecting fake reviews and complaint patterns...", progress: 70 },
+      { agent: "scientist", message: "Identifying anomalous review bursts...", progress: 80 },
+      { agent: "storyteller", message: "Generating human-readable insights...", progress: 90 },
+      { agent: "creative", message: "Building interactive dashboard...", progress: 95 },
+      { agent: "lead", message: "Analysis complete! Ready to explore insights.", progress: 100 }
     ];
 
     for (const step of steps) {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1200));
       setAnalysisProgress(step.progress);
       toast({
         title: `${step.agent.charAt(0).toUpperCase() + step.agent.slice(1)} Agent`,
@@ -102,13 +127,16 @@ const Index = () => {
             Airbnb Review Anomaly Detection
           </h1>
           <p className="text-lg text-slate-600 max-w-3xl mx-auto">
-            Multi-agent AI system for analyzing text anomalies in Airbnb reviews using collaborative intelligence
+            Multi-agent AI system for analyzing CSV datasets with review_id, listing_id, neighbourhood, created_at, language, and raw_text fields
           </p>
           <Badge variant="outline" className="text-sm">
             <AlertTriangle className="w-4 h-4 mr-1" />
-            5 AI Agents Active
+            6 AI Agents Active
           </Badge>
         </div>
+
+        {/* CSV Upload Section */}
+        <CSVUpload onDataUpload={setCsvData} />
 
         {/* Analysis Controls */}
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
@@ -122,7 +150,7 @@ const Index = () => {
             <div className="flex items-center gap-4">
               <Button 
                 onClick={startAnalysis} 
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || !csvData}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {isAnalyzing ? "Analyzing..." : "Start Analysis"}
@@ -138,7 +166,7 @@ const Index = () => {
         </Card>
 
         {/* Agents Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {agents.map((agent) => (
             <AgentCard key={agent.id} agent={agent} isActive={isAnalyzing} />
           ))}
@@ -146,39 +174,42 @@ const Index = () => {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-5 bg-white/80 backdrop-blur-sm">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="data">Data Preview</TabsTrigger>
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
+            <TabsTrigger value="insights">Insights</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
             <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader>
-                <CardTitle>System Overview</CardTitle>
+                <CardTitle>Enhanced System Overview</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h3 className="font-semibold mb-2">Agent Workflow</h3>
+                    <h3 className="font-semibold mb-2">Enhanced Agent Workflow</h3>
                     <ol className="space-y-2 text-sm text-slate-600">
-                      <li>1. Data Engineer downloads Airbnb datasets</li>
-                      <li>2. Data preprocessing and cleaning</li>
-                      <li>3. Analytical Agent explores patterns</li>
-                      <li>4. Data Scientist trains ML models</li>
-                      <li>5. Creative Agent builds visualizations</li>
-                      <li>6. Lead Agent coordinates and summarizes</li>
+                      <li>1. Data Engineer validates CSV structure (review_id, listing_id, neighbourhood, created_at, language, raw_text)</li>
+                      <li>2. Parse created_at for time-series analysis</li>
+                      <li>3. Group reviews by listing_id and neighbourhood</li>
+                      <li>4. Analytical Agent analyzes trends and sentiment</li>
+                      <li>5. Data Scientist detects anomalies and fake reviews</li>
+                      <li>6. Storyteller Agent generates human-readable insights</li>
+                      <li>7. Creative Agent builds interactive dashboard</li>
                     </ol>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">Anomaly Detection Features</h3>
+                    <h3 className="font-semibold mb-2">New Features</h3>
                     <ul className="space-y-2 text-sm text-slate-600">
-                      <li>• Sentiment analysis irregularities</li>
-                      <li>• Unusual review patterns</li>
-                      <li>• Fake review detection</li>
-                      <li>• Geographic anomalies</li>
-                      <li>• Temporal pattern analysis</li>
+                      <li>• CSV file upload and validation</li>
+                      <li>• Time-series analysis with created_at</li>
+                      <li>• Neighbourhood-based filtering</li>
+                      <li>• Language detection and analysis</li>
+                      <li>• Storyteller insights generation</li>
+                      <li>• Interactive time and location filters</li>
                     </ul>
                   </div>
                 </div>
@@ -187,15 +218,19 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="data">
-            <DataPreview />
+            <DataPreview csvData={csvData} />
           </TabsContent>
 
           <TabsContent value="dashboard">
-            <Dashboard />
+            <Dashboard csvData={csvData} />
           </TabsContent>
 
           <TabsContent value="anomalies">
-            <AnomalyDetection />
+            <AnomalyDetection csvData={csvData} />
+          </TabsContent>
+
+          <TabsContent value="insights">
+            <StorytellerInsights csvData={csvData} />
           </TabsContent>
         </Tabs>
       </div>

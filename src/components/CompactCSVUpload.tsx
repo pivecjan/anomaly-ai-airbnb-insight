@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, CheckCircle, AlertTriangle, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DataPreprocessor } from "@/utils/dataPreprocessing";
+import { CSVParser } from "@/utils/csvParser";
 import { useCSVDataStore } from "@/store/csvDataStore";
 
 const CompactCSVUpload = () => {
@@ -26,19 +27,7 @@ const CompactCSVUpload = () => {
   } = useCSVDataStore();
 
   const parseCSV = (text: string): any[] => {
-    const lines = text.split('\n');
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-    
-    return lines.slice(1)
-      .filter(line => line.trim())
-      .map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-        const row: any = {};
-        headers.forEach((header, index) => {
-          row[header] = values[index] || '';
-        });
-        return row;
-      });
+    return CSVParser.parse(text);
   };
 
   const handleFileUpload = useCallback(async (file: File) => {
@@ -55,16 +44,18 @@ const CompactCSVUpload = () => {
       }, 200);
 
       const text = await file.text();
-      const lines = text.split('\n');
       
-      if (lines.length < 2) {
-        throw new Error('CSV file must contain at least a header and one data row');
+      // Parse CSV data
+      const rawData = parseCSV(text);
+      
+      if (rawData.length === 0) {
+        throw new Error('CSV file must contain at least one data row');
       }
 
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const headers = Object.keys(rawData[0]);
       
       // Validate CSV structure
-      const structureErrors = DataPreprocessor.validateStructure(headers);
+      const structureErrors = CSVParser.validateStructure(headers);
       if (structureErrors.length > 0) {
         clearInterval(progressInterval);
         setValidationStatus('invalid');
@@ -74,8 +65,7 @@ const CompactCSVUpload = () => {
         return;
       }
 
-      // Parse and preprocess data
-      const rawData = parseCSV(text);
+      // Set raw data and preprocess
       setRawData(rawData);
       const { cleanedData, report } = DataPreprocessor.preprocessData(rawData);
 

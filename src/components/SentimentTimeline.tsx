@@ -1,4 +1,3 @@
-
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -6,7 +5,12 @@ import { TrendingUp, TrendingDown, Calendar } from "lucide-react";
 import { useCSVDataStore } from "@/store/csvDataStore";
 import { SentimentAnalyzer } from "@/utils/sentimentAnalysis";
 
-const SentimentTimeline = () => {
+interface SentimentTimelineProps {
+  selectedNeighbourhood?: string;
+  selectedLanguage?: string;
+}
+
+const SentimentTimeline = ({ selectedNeighbourhood = "all", selectedLanguage = "all" }: SentimentTimelineProps) => {
   const { cleanedData, isDataReady } = useCSVDataStore();
 
   const timelineData = useMemo(() => {
@@ -14,8 +18,24 @@ const SentimentTimeline = () => {
       return [];
     }
 
-    return SentimentAnalyzer.calculateTimelineSentiment(cleanedData);
-  }, [cleanedData, isDataReady]);
+    // Apply filters to the data
+    let filteredData = cleanedData;
+    
+    if (selectedNeighbourhood !== "all") {
+      filteredData = filteredData.filter(row => row.neighbourhood === selectedNeighbourhood);
+    }
+    
+    if (selectedLanguage !== "all") {
+      filteredData = filteredData.filter(row => row.language === selectedLanguage);
+    }
+
+    // If no data after filtering, return empty array
+    if (filteredData.length === 0) {
+      return [];
+    }
+
+    return SentimentAnalyzer.calculateTimelineSentiment(filteredData);
+  }, [cleanedData, isDataReady, selectedNeighbourhood, selectedLanguage]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -48,16 +68,30 @@ const SentimentTimeline = () => {
   };
 
   if (!isDataReady || timelineData.length === 0) {
+    const noDataMessage = !isDataReady 
+      ? "Upload CSV data to view sentiment timeline"
+      : "No data available for the selected filters";
+
     return (
       <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5" />
             Sentiment Over Time
+            {(selectedNeighbourhood !== "all" || selectedLanguage !== "all") && (
+              <span className="text-sm font-normal text-slate-500">
+                (Filtered)
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-8 text-center">
-          <p className="text-slate-600">Upload CSV data to view sentiment timeline</p>
+          <p className="text-slate-600">{noDataMessage}</p>
+          {(selectedNeighbourhood !== "all" || selectedLanguage !== "all") && (
+            <p className="text-xs text-slate-500 mt-2">
+              Try adjusting your filters to see more data
+            </p>
+          )}
         </CardContent>
       </Card>
     );
@@ -69,6 +103,11 @@ const SentimentTimeline = () => {
         <CardTitle className="flex items-center gap-2">
           <Calendar className="w-5 h-5" />
           Sentiment Over Time
+          {(selectedNeighbourhood !== "all" || selectedLanguage !== "all") && (
+            <span className="text-sm font-normal text-slate-500">
+              (Filtered: {timelineData.reduce((sum, item) => sum + item.reviewCount, 0)} reviews)
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>

@@ -149,13 +149,22 @@ export class SentimentAnalyzer {
     const timeline = Object.entries(monthlyGroups)
       .map(([month, texts]) => {
         const avgSentiment = this.calculateAverageSentiment(texts);
+        const date = new Date(month + '-01');
+        const formattedMonth = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getFullYear()).slice(-2)}`;
         return {
-          month: new Date(month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'short' }),
+          month: formattedMonth,
           averageSentiment: Number(((avgSentiment.score + 1) / 2).toFixed(3)),
           reviewCount: texts.length
         };
       })
-      .sort((a, b) => new Date(a.month + ' 1').getTime() - new Date(b.month + ' 1').getTime());
+      .sort((a, b) => {
+        // Parse MM/YY format for proper sorting
+        const [monthA, yearA] = a.month.split('/');
+        const [monthB, yearB] = b.month.split('/');
+        const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1);
+        const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1);
+        return dateA.getTime() - dateB.getTime();
+      });
 
     // Calculate month-to-month changes
     return timeline.map((item, index) => {

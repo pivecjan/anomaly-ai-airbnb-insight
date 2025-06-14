@@ -106,9 +106,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Sentiment Timeline - Prominent position */}
-      <SentimentTimeline />
-
       {/* Filters */}
       <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
         <CardHeader>
@@ -140,6 +137,12 @@ const Dashboard = () => {
           </Select>
         </CardContent>
       </Card>
+
+      {/* Sentiment Timeline - Now positioned under filters and reactive to them */}
+      <SentimentTimeline 
+        selectedNeighbourhood={selectedNeighbourhood}
+        selectedLanguage={selectedLanguage}
+      />
 
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

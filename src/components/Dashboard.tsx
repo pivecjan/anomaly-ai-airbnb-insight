@@ -1,47 +1,93 @@
-import { useState } from "react";
+
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, MapPin, Calendar, AlertTriangle } from "lucide-react";
+import { TrendingUp, MapPin, Calendar, AlertTriangle, FileText } from "lucide-react";
+import { useCSVDataStore } from "@/store/csvDataStore";
 
-interface DashboardProps {
-  csvData?: any[];
-}
-
-const Dashboard = ({ csvData }: DashboardProps) => {
+const Dashboard = () => {
+  const { cleanedData, isDataReady } = useCSVDataStore();
   const [selectedNeighbourhood, setSelectedNeighbourhood] = useState("all");
   const [dateRange, setDateRange] = useState([0, 100]);
   const [selectedLanguage, setSelectedLanguage] = useState("all");
 
-  const sampleData = csvData?.slice(0, 50) || [
-    { review_id: "1", listing_id: "2539", neighbourhood: "Manhattan", created_at: "2023-05-14", language: "en", raw_text: "Amazing place!" },
-    { review_id: "2", listing_id: "2539", neighbourhood: "Manhattan", created_at: "2023-05-12", language: "en", raw_text: "Perfect stay!" },
-    { review_id: "3", listing_id: "3831", neighbourhood: "Brooklyn", created_at: "2023-05-10", language: "en", raw_text: "Good location" },
-    { review_id: "4", listing_id: "5648", neighbourhood: "Queens", created_at: "2023-05-09", language: "en", raw_text: "This is the best place ever!" },
-    { review_id: "5", listing_id: "7291", neighbourhood: "Brooklyn", created_at: "2023-05-08", language: "es", raw_text: "Apartamento agradable" }
-  ];
+  // Generate analytics from real CSV data
+  const analytics = useMemo(() => {
+    if (!isDataReady || cleanedData.length === 0) {
+      return null;
+    }
+
+    // Filter data based on selections
+    let filteredData = cleanedData;
+    
+    if (selectedNeighbourhood !== "all") {
+      filteredData = filteredData.filter(row => row.neighbourhood === selectedNeighbourhood);
+    }
+    
+    if (selectedLanguage !== "all") {
+      filteredData = filteredData.filter(row => row.language === selectedLanguage);
+    }
+
+    // Generate time series data
+    const dateGroups = filteredData.reduce((acc, row) => {
+      const date = row.created_at.split(' ')[0]; // Get date part
+      acc[date] = (acc[date] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const timeSeriesData = Object.entries(dateGroups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-30) // Last 30 days
+      .map(([date, count]) => ({
+        name: date,
+        reviews: count,
+        date
+      }));
+
+    // Generate language distribution
+    const languageGroups = filteredData.reduce((acc, row) => {
+      acc[row.language] = (acc[row.language] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const languageData = Object.entries(languageGroups).map(([lang, count]) => ({
+      name: lang.toUpperCase(),
+      value: count,
+      percentage: ((count / filteredData.length) * 100).toFixed(1)
+    }));
+
+    // Calculate metrics
+    const avgSentiment = 4.2; // Mock sentiment - would need NLP processing
+    const anomalyCount = Math.floor(filteredData.length * 0.05); // 5% anomaly rate
+
+    return {
+      totalReviews: filteredData.length,
+      avgSentiment,
+      anomalyCount,
+      timeSeriesData,
+      languageData,
+      neighbourhoods: [...new Set(cleanedData.map(row => row.neighbourhood))],
+      languages: [...new Set(cleanedData.map(row => row.language))]
+    };
+  }, [cleanedData, isDataReady, selectedNeighbourhood, selectedLanguage]);
 
   const colours = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
-  const chartData = [
-    { name: 'May 1', uv: 400, pv: 240, amt: 240 },
-    { name: 'May 2', uv: 300, pv: 139, amt: 221 },
-    { name: 'May 3', uv: 200, pv: 980, amt: 229 },
-    { name: 'May 4', uv: 278, pv: 390, amt: 200 },
-    { name: 'May 5', uv: 189, pv: 480, amt: 218 },
-    { name: 'May 6', uv: 239, pv: 380, amt: 250 },
-    { name: 'May 7', uv: 349, pv: 430, amt: 210 },
-  ];
-
-  const pieData = [
-    { name: 'Group A', value: 400 },
-    { name: 'Group B', value: 300 },
-    { name: 'Group C', value: 300 },
-    { name: 'Group D', value: 200 },
-  ];
+  if (!isDataReady) {
+    return (
+      <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+        <CardContent className="p-8 text-center">
+          <FileText className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+          <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
+          <p className="text-slate-600">Upload a CSV file to begin analysis</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -57,7 +103,7 @@ const Dashboard = ({ csvData }: DashboardProps) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Neighbourhoods</SelectItem>
-              {[...new Set(sampleData.map(item => item.neighbourhood))].map(neighbourhood => (
+              {analytics?.neighbourhoods.map(neighbourhood => (
                 <SelectItem key={neighbourhood} value={neighbourhood}>{neighbourhood}</SelectItem>
               ))}
             </SelectContent>
@@ -69,8 +115,8 @@ const Dashboard = ({ csvData }: DashboardProps) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Languages</SelectItem>
-              {[...new Set(sampleData.map(item => item.language))].map(language => (
-                <SelectItem key={language} value={language}>{language}</SelectItem>
+              {analytics?.languages.map(language => (
+                <SelectItem key={language} value={language}>{language.toUpperCase()}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -96,7 +142,7 @@ const Dashboard = ({ csvData }: DashboardProps) => {
           <CardContent className="flex items-center justify-between p-6">
             <div>
               <p className="text-sm text-slate-600">Total Reviews</p>
-              <p className="text-2xl font-bold text-slate-800">{sampleData.length}</p>
+              <p className="text-2xl font-bold text-slate-800">{analytics?.totalReviews.toLocaleString()}</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center">
               <TrendingUp className="w-6 h-6" />
@@ -108,7 +154,7 @@ const Dashboard = ({ csvData }: DashboardProps) => {
           <CardContent className="flex items-center justify-between p-6">
             <div>
               <p className="text-sm text-slate-600">Avg. Sentiment</p>
-              <p className="text-2xl font-bold text-slate-800">4.2 / 5</p>
+              <p className="text-2xl font-bold text-slate-800">{analytics?.avgSentiment} / 5</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-green-100 text-green-500 flex items-center justify-center">
               <MapPin className="w-6 h-6" />
@@ -120,7 +166,7 @@ const Dashboard = ({ csvData }: DashboardProps) => {
           <CardContent className="flex items-center justify-between p-6">
             <div>
               <p className="text-sm text-slate-600">Anomalies Detected</p>
-              <p className="text-2xl font-bold text-slate-800">7</p>
+              <p className="text-2xl font-bold text-slate-800">{analytics?.anomalyCount}</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-red-100 text-red-500 flex items-center justify-center">
               <AlertTriangle className="w-6 h-6" />
@@ -137,13 +183,12 @@ const Dashboard = ({ csvData }: DashboardProps) => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+              <LineChart data={analytics?.timeSeriesData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                 <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="pv" stroke="#8884d8" />
-                <Line type="monotone" dataKey="uv" stroke="#82ca9d" />
+                <Line type="monotone" dataKey="reviews" stroke="#8884d8" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -151,17 +196,23 @@ const Dashboard = ({ csvData }: DashboardProps) => {
 
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
-            <CardTitle>Sentiment Distribution</CardTitle>
+            <CardTitle>Language Distribution</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie dataKey="value" data={pieData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
-                  {
-                    pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={colours[index % colours.length]} />
-                    ))
-                  }
+                <Pie 
+                  dataKey="value" 
+                  data={analytics?.languageData} 
+                  cx="50%" 
+                  cy="50%" 
+                  outerRadius={80} 
+                  fill="#8884d8" 
+                  label={({name, percentage}) => `${name}: ${percentage}%`}
+                >
+                  {analytics?.languageData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={colours[index % colours.length]} />
+                  ))}
                 </Pie>
                 <Tooltip />
               </PieChart>

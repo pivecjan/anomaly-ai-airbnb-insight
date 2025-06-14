@@ -6,19 +6,22 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, FileText, CheckCircle, AlertTriangle, Download, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DataPreprocessor, PreprocessingReport, CleanedRow } from "@/utils/dataPreprocessing";
+import { useCSVDataStore } from "@/store/csvDataStore";
 
-interface CSVUploadProps {
-  onDataUpload: (data: CleanedRow[]) => void;
-}
-
-const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
+const CSVUpload = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [preprocessingReport, setPreprocessingReport] = useState<PreprocessingReport | null>(null);
-  const [cleanedData, setCleanedData] = useState<CleanedRow[]>([]);
   const { toast } = useToast();
+  
+  const { 
+    cleanedData, 
+    preprocessingReport, 
+    setCleanedData, 
+    setPreprocessingReport, 
+    clearData 
+  } = useCSVDataStore();
 
   const parseCSV = (text: string): any[] => {
     const lines = text.split('\n');
@@ -40,7 +43,7 @@ const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
     setValidationStatus('validating');
     setUploadedFile(file);
     setValidationErrors([]);
-    setPreprocessingReport(null);
+    clearData();
 
     try {
       const text = await file.text();
@@ -84,7 +87,6 @@ const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
       }
 
       setValidationStatus('valid');
-      onDataUpload(cleanedData);
       
       toast({
         title: "CSV Processing Complete",
@@ -100,7 +102,7 @@ const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
         variant: "destructive"
       });
     }
-  }, [onDataUpload, toast]);
+  }, [setCleanedData, setPreprocessingReport, clearData, toast]);
 
   const downloadCleanedData = () => {
     if (cleanedData.length === 0) return;

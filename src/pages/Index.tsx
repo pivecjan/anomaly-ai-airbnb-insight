@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,14 +13,15 @@ import AnomalyDetection from "@/components/AnomalyDetection";
 import CSVUpload from "@/components/CSVUpload";
 import StorytellerInsights from "@/components/StorytellerInsights";
 import { useToast } from "@/hooks/use-toast";
-import { CleanedRow } from "@/utils/dataPreprocessing";
+import { useCSVDataStore } from "@/store/csvDataStore";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [csvData, setCsvData] = useState<CleanedRow[] | null>(null);
   const { toast } = useToast();
+  
+  const { cleanedData, isDataReady } = useCSVDataStore();
 
   const agents = [
     {
@@ -79,7 +81,7 @@ const Index = () => {
   ];
 
   const startAnalysis = async () => {
-    if (!csvData) {
+    if (!isDataReady) {
       toast({
         title: "No Data Found",
         description: "Please upload a CSV file first to begin analysis.",
@@ -136,7 +138,7 @@ const Index = () => {
         </div>
 
         {/* CSV Upload Section */}
-        <CSVUpload onDataUpload={setCsvData} />
+        <CSVUpload />
 
         {/* Analysis Controls */}
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
@@ -150,14 +152,14 @@ const Index = () => {
             <div className="flex items-center gap-4">
               <Button 
                 onClick={startAnalysis} 
-                disabled={isAnalyzing || !csvData}
+                disabled={isAnalyzing || !isDataReady}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {isAnalyzing ? "Analyzing..." : "Start Analysis"}
               </Button>
-              {csvData && (
+              {isDataReady && (
                 <div className="text-sm text-slate-600">
-                  Ready to analyze {csvData.length} cleaned reviews
+                  Ready to analyze {cleanedData.length.toLocaleString()} cleaned reviews
                 </div>
               )}
               {isAnalyzing && (
@@ -223,19 +225,19 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="data">
-            <DataPreview csvData={csvData} />
+            <DataPreview />
           </TabsContent>
 
           <TabsContent value="dashboard">
-            <Dashboard csvData={csvData} />
+            <Dashboard />
           </TabsContent>
 
           <TabsContent value="anomalies">
-            <AnomalyDetection csvData={csvData} />
+            <AnomalyDetection />
           </TabsContent>
 
           <TabsContent value="insights">
-            <StorytellerInsights csvData={csvData} />
+            <StorytellerInsights />
           </TabsContent>
         </Tabs>
       </div>

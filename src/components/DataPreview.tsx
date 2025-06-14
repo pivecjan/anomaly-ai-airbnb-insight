@@ -3,62 +3,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, Database, FileText, BarChart3, Calendar, MapPin, Languages, MessageSquare } from "lucide-react";
+import { useCSVDataStore } from "@/store/csvDataStore";
 
-interface DataPreviewProps {
-  csvData?: any[];
-}
+const DataPreview = () => {
+  const { cleanedData, isDataReady } = useCSVDataStore();
 
-const DataPreview = ({ csvData }: DataPreviewProps) => {
-  // If no CSV data, show mock data
-  const sampleData = csvData?.slice(0, 10) || [
-    {
-      review_id: "1",
-      listing_id: "2539",
-      neighbourhood: "Manhattan",
-      created_at: "2023-05-14",
-      language: "en",
-      raw_text: "Amazing place! Clean, comfortable, and great location. Host was very responsive."
-    },
-    {
-      review_id: "2",
-      listing_id: "2539",
-      neighbourhood: "Manhattan", 
-      created_at: "2023-05-12",
-      language: "en",
-      raw_text: "Perfect stay! Everything was exactly as described. Highly recommend!"
-    },
-    {
-      review_id: "3",
-      listing_id: "3831",
-      neighbourhood: "Brooklyn",
-      created_at: "2023-05-10",
-      language: "en",
-      raw_text: "Good location but the apartment was dirty and not as shown in photos."
-    },
-    {
-      review_id: "4",
-      listing_id: "5648",
-      neighbourhood: "Queens",
-      created_at: "2023-05-09",
-      language: "en",
-      raw_text: "This is the best place ever! Amazing! Perfect! Incredible! Best host ever!"
-    },
-    {
-      review_id: "5",
-      listing_id: "7291",
-      neighbourhood: "Brooklyn",
-      created_at: "2023-05-08",
-      language: "es",
-      raw_text: "Apartamento agradable con buenas comodidades. El anfitrión fue muy útil."
+  // Calculate statistics from actual CSV data
+  const calculateStats = () => {
+    if (!isDataReady || cleanedData.length === 0) {
+      return {
+        totalRecords: 0,
+        uniqueListings: 0,
+        uniqueNeighbourhoods: 0,
+        languages: 0,
+        languageDistribution: {}
+      };
     }
-  ];
 
-  // Calculate statistics from actual or mock data
-  const calculateStats = (data: any[]) => {
-    const totalRecords = data.length;
-    const uniqueListings = new Set(data.map(item => item.listing_id)).size;
-    const uniqueNeighbourhoods = new Set(data.map(item => item.neighbourhood)).size;
-    const languageDistribution = data.reduce((acc, item) => {
+    const totalRecords = cleanedData.length;
+    const uniqueListings = new Set(cleanedData.map(item => item.listing_id)).size;
+    const uniqueNeighbourhoods = new Set(cleanedData.map(item => item.neighbourhood)).size;
+    const languageDistribution = cleanedData.reduce((acc, item) => {
       acc[item.language] = (acc[item.language] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -72,7 +37,8 @@ const DataPreview = ({ csvData }: DataPreviewProps) => {
     };
   };
 
-  const stats = calculateStats(csvData || sampleData);
+  const stats = calculateStats();
+  const previewData = cleanedData.slice(0, 10);
 
   const dataStats = [
     { label: "Total Reviews", value: stats.totalRecords.toLocaleString(), icon: MessageSquare },
@@ -80,6 +46,18 @@ const DataPreview = ({ csvData }: DataPreviewProps) => {
     { label: "Neighbourhoods", value: stats.uniqueNeighbourhoods.toString(), icon: MapPin },
     { label: "Languages", value: stats.languages.toString(), icon: Languages }
   ];
+
+  if (!isDataReady) {
+    return (
+      <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+        <CardContent className="p-8 text-center">
+          <FileText className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+          <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
+          <p className="text-slate-600">Upload a CSV file to preview the data</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -172,10 +150,7 @@ const DataPreview = ({ csvData }: DataPreviewProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            Sample Data Preview
-            {!csvData && (
-              <Badge variant="outline" className="ml-2">Mock Data</Badge>
-            )}
+            Data Preview
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -192,7 +167,7 @@ const DataPreview = ({ csvData }: DataPreviewProps) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sampleData.map((row, index) => (
+                {previewData.map((row, index) => (
                   <TableRow key={row.review_id || index}>
                     <TableCell className="font-medium">{row.review_id}</TableCell>
                     <TableCell>{row.listing_id}</TableCell>
@@ -202,7 +177,7 @@ const DataPreview = ({ csvData }: DataPreviewProps) => {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        {row.created_at}
+                        {row.created_at.split(' ')[0]}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -220,9 +195,9 @@ const DataPreview = ({ csvData }: DataPreviewProps) => {
               </TableBody>
             </Table>
           </div>
-          {csvData && csvData.length > 10 && (
+          {cleanedData.length > 10 && (
             <div className="mt-4 text-center text-sm text-slate-600">
-              Showing first 10 of {csvData.length.toLocaleString()} total reviews
+              Showing first 10 of {cleanedData.length.toLocaleString()} total reviews
             </div>
           )}
         </CardContent>

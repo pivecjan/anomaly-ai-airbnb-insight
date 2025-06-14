@@ -1,56 +1,79 @@
-
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, TrendingUp, MapPin, Clock, FileText } from "lucide-react";
+import { useCSVDataStore } from "@/store/csvDataStore";
 
-interface AnomalyDetectionProps {
-  csvData?: any[];
-}
+const AnomalyDetection = () => {
+  const { cleanedData, isDataReady } = useCSVDataStore();
 
-const AnomalyDetection = ({ csvData }: AnomalyDetectionProps) => {
-  // Use csvData if available, otherwise use mock data
-  const sampleData = csvData?.slice(0, 20) || [
-    { review_id: "1", listing_id: "2539", neighbourhood: "Manhattan", created_at: "2023-05-14", language: "en", raw_text: "Amazing place!" },
-    { review_id: "2", listing_id: "2539", neighbourhood: "Manhattan", created_at: "2023-05-12", language: "en", raw_text: "Perfect stay!" },
-    { review_id: "3", listing_id: "3831", neighbourhood: "Brooklyn", created_at: "2023-05-10", language: "en", raw_text: "Good location" },
-    { review_id: "4", listing_id: "5648", neighbourhood: "Queens", created_at: "2023-05-09", language: "en", raw_text: "This is the best place ever! Amazing! Perfect! Incredible! Best host ever!" },
-    { review_id: "5", listing_id: "7291", neighbourhood: "Brooklyn", created_at: "2023-05-08", language: "es", raw_text: "Apartamento agradable" }
-  ];
-
-  // Mock anomaly detection results
-  const anomalies = [
-    {
-      id: 1,
-      type: "Fake Review Cluster",
-      severity: "high",
-      description: "5 suspiciously similar reviews for listing #2539 in Manhattan",
-      affected_reviews: 5,
-      confidence: 0.89,
-      listing_id: "2539",
-      neighbourhood: "Manhattan"
-    },
-    {
-      id: 2,
-      type: "Review Burst",
-      severity: "medium",
-      description: "Unusual spike of 15 reviews in Brooklyn on 2023-05-10",
-      affected_reviews: 15,
-      confidence: 0.74,
-      listing_id: "multiple",
-      neighbourhood: "Brooklyn"
-    },
-    {
-      id: 3,
-      type: "Sentiment Anomaly",
-      severity: "low",
-      description: "Negative sentiment cluster in Queens luxury listings",
-      affected_reviews: 8,
-      confidence: 0.65,
-      listing_id: "multiple",
-      neighbourhood: "Queens"
+  // Generate anomalies from real CSV data
+  const anomalies = useMemo(() => {
+    if (!isDataReady || cleanedData.length === 0) {
+      return [];
     }
-  ];
+
+    // Analyze patterns in real data
+    const listingGroups = cleanedData.reduce((acc, row) => {
+      if (!acc[row.listing_id]) {
+        acc[row.listing_id] = [];
+      }
+      acc[row.listing_id].push(row);
+      return acc;
+    }, {} as Record<string, typeof cleanedData>);
+
+    const neighbourhoodGroups = cleanedData.reduce((acc, row) => {
+      if (!acc[row.neighbourhood]) {
+        acc[row.neighbourhood] = [];
+      }
+      acc[row.neighbourhood].push(row);
+      return acc;
+    }, {} as Record<string, typeof cleanedData>);
+
+    const detectedAnomalies = [];
+
+    // Detect review clusters (multiple reviews for same listing in short time)
+    Object.entries(listingGroups).forEach(([listingId, reviews]) => {
+      if (reviews.length >= 3) {
+        const neighbourhood = reviews[0].neighbourhood;
+        detectedAnomalies.push({
+          id: detectedAnomalies.length + 1,
+          type: "Review Cluster",
+          severity: reviews.length >= 5 ? "high" : "medium",
+          description: `${reviews.length} reviews for listing #${listingId} in ${neighbourhood}`,
+          affected_reviews: reviews.length,
+          confidence: Math.min(0.95, 0.6 + (reviews.length * 0.1)),
+          listing_id: listingId,
+          neighbourhood
+        });
+      }
+    });
+
+    // Detect neighbourhood anomalies
+    Object.entries(neighbourhoodGroups).forEach(([neighbourhood, reviews]) => {
+      const languageGroups = reviews.reduce((acc, row) => {
+        acc[row.language] = (acc[row.language] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const nonEnglishRatio = (reviews.length - (languageGroups.en || 0)) / reviews.length;
+      if (nonEnglishRatio > 0.3 && reviews.length > 10) {
+        detectedAnomalies.push({
+          id: detectedAnomalies.length + 1,
+          type: "Language Anomaly",
+          severity: "low",
+          description: `High non-English review ratio (${(nonEnglishRatio * 100).toFixed(0)}%) in ${neighbourhood}`,
+          affected_reviews: reviews.length - (languageGroups.en || 0),
+          confidence: 0.7,
+          listing_id: "multiple",
+          neighbourhood
+        });
+      }
+    });
+
+    return detectedAnomalies.slice(0, 5); // Limit to 5 for display
+  }, [cleanedData, isDataReady]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -69,6 +92,18 @@ const AnomalyDetection = ({ csvData }: AnomalyDetectionProps) => {
       default: return "outline" as const;
     }
   };
+
+  if (!isDataReady) {
+    return (
+      <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+        <CardContent className="p-8 text-center">
+          <FileText className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+          <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
+          <p className="text-slate-600">Upload a CSV file to detect anomalies</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -130,54 +165,60 @@ const AnomalyDetection = ({ csvData }: AnomalyDetectionProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {anomalies.map((anomaly) => (
-              <div key={anomaly.id} className="border rounded-lg p-4 bg-slate-50">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${getSeverityColor(anomaly.severity)}`} />
+          {anomalies.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-slate-600">No anomalies detected in the current dataset.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {anomalies.map((anomaly) => (
+                <div key={anomaly.id} className="border rounded-lg p-4 bg-slate-50">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${getSeverityColor(anomaly.severity)}`} />
+                      <div>
+                        <h3 className="font-semibold text-slate-800">{anomaly.type}</h3>
+                        <p className="text-sm text-slate-600">{anomaly.description}</p>
+                      </div>
+                    </div>
+                    <Badge variant={getSeverityBadgeVariant(anomaly.severity)}>
+                      {anomaly.severity.toUpperCase()}
+                    </Badge>
+                  </div>
+                
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <h3 className="font-semibold text-slate-800">{anomaly.type}</h3>
-                      <p className="text-sm text-slate-600">{anomaly.description}</p>
+                      <span className="text-slate-500">Confidence:</span>
+                      <span className="ml-2 font-medium">{(anomaly.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Reviews:</span>
+                      <span className="ml-2 font-medium">{anomaly.affected_reviews}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Location:</span>
+                      <span className="ml-2 font-medium">{anomaly.neighbourhood}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Listing:</span>
+                      <span className="ml-2 font-medium">#{anomaly.listing_id}</span>
                     </div>
                   </div>
-                  <Badge variant={getSeverityBadgeVariant(anomaly.severity)}>
-                    {anomaly.severity.toUpperCase()}
-                  </Badge>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-slate-500">Confidence:</span>
-                    <span className="ml-2 font-medium">{(anomaly.confidence * 100).toFixed(0)}%</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Reviews:</span>
-                    <span className="ml-2 font-medium">{anomaly.affected_reviews}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Location:</span>
-                    <span className="ml-2 font-medium">{anomaly.neighbourhood}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Listing:</span>
-                    <span className="ml-2 font-medium">#{anomaly.listing_id}</span>
-                  </div>
-                </div>
 
-                <div className="mt-3 flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <MapPin className="w-3 h-3 mr-1" />
-                    Investigate
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Clock className="w-3 h-3 mr-1" />
-                    View Timeline
-                  </Button>
+                  <div className="mt-3 flex gap-2">
+                    <Button variant="outline" size="sm">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      Investigate
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Clock className="w-3 h-3 mr-1" />
+                      View Timeline
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

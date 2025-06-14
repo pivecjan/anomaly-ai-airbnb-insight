@@ -13,6 +13,7 @@ import CompactCSVUpload from "@/components/CompactCSVUpload";
 import StorytellerInsights from "@/components/StorytellerInsights";
 import { useToast } from "@/hooks/use-toast";
 import { useCSVDataStore } from "@/store/csvDataStore";
+import AnomalyInsights from "@/components/AnomalyInsights";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -231,7 +232,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="anomalies">
-            <EnhancedAnomalyDetection />
+            <AnomalyInsights />
           </TabsContent>
 
           <TabsContent value="insights">

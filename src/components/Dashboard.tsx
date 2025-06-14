@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, MapPin, Calendar, AlertTriangle, FileText } from "lucide-react";
 import { useCSVDataStore } from "@/store/csvDataStore";
 import SentimentMetric from "./SentimentMetric";
+import SentimentTimeline from "./SentimentTimeline";
 
 const Dashboard = () => {
   const { cleanedData, isDataReady } = useCSVDataStore();
@@ -84,6 +85,9 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Sentiment Timeline - Prominent position */}
+      <SentimentTimeline />
+
       {/* Filters */}
       <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
         <CardHeader>

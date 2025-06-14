@@ -1,9 +1,24 @@
-
 // Simple sentiment analysis utility (browser-based)
 export interface SentimentResult {
   score: number; // -1 to 1 range
   magnitude: number; // 0 to 1 range
   label: 'negative' | 'neutral' | 'positive';
+}
+
+export interface TimelineSentiment {
+  month: string;
+  averageSentiment: number;
+  reviewCount: number;
+  change?: number;
+}
+
+export interface AnomalyMetadata {
+  review_id: string;
+  type: 'suspicious' | 'complaint' | 'language';
+  reason: string;
+  example: string;
+  neighbourhood: string;
+  created_at: string;
 }
 
 export class SentimentAnalyzer {
@@ -102,6 +117,86 @@ export class SentimentAnalyzer {
       magnitude,
       label
     };
+  }
+
+  static calculateTimelineSentiment(data: Array<{created_at: string, raw_text: string}>): TimelineSentiment[] {
+    const monthlyGroups = data.reduce((acc, row) => {
+      const date = new Date(row.created_at);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!acc[monthKey]) {
+        acc[monthKey] = [];
+      }
+      acc[monthKey].push(row.raw_text);
+      return acc;
+    }, {} as Record<string, string[]>);
+
+    const timeline = Object.entries(monthlyGroups)
+      .map(([month, texts]) => {
+        const avgSentiment = this.calculateAverageSentiment(texts);
+        return {
+          month: new Date(month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'short' }),
+          averageSentiment: Number(((avgSentiment.score + 1) / 2).toFixed(3)),
+          reviewCount: texts.length
+        };
+      })
+      .sort((a, b) => new Date(a.month + ' 1').getTime() - new Date(b.month + ' 1').getTime());
+
+    // Calculate month-to-month changes
+    return timeline.map((item, index) => {
+      if (index > 0) {
+        const change = ((item.averageSentiment - timeline[index - 1].averageSentiment) / timeline[index - 1].averageSentiment) * 100;
+        return { ...item, change: Number(change.toFixed(1)) };
+      }
+      return item;
+    });
+  }
+
+  static detectAnomalies(data: Array<{review_id: string, raw_text: string, neighbourhood: string, created_at: string, language: string}>): AnomalyMetadata[] {
+    const anomalies: AnomalyMetadata[] = [];
+
+    data.forEach(row => {
+      const text = row.raw_text.toLowerCase();
+      
+      // Detect complaints
+      const complaintKeywords = ['dirty', 'clean', 'smell', 'noise', 'broken', 'uncomfortable', 'rude', 'terrible'];
+      if (complaintKeywords.some(keyword => text.includes(keyword))) {
+        anomalies.push({
+          review_id: row.review_id,
+          type: 'complaint',
+          reason: 'Contains complaint keywords',
+          example: row.raw_text.substring(0, 50) + '...',
+          neighbourhood: row.neighbourhood,
+          created_at: row.created_at
+        });
+      }
+
+      // Detect suspicious patterns
+      if (text.length < 20 || /(.)\1{3,}/.test(text)) {
+        anomalies.push({
+          review_id: row.review_id,
+          type: 'suspicious',
+          reason: 'Repetitive or too short',
+          example: row.raw_text.substring(0, 50) + '...',
+          neighbourhood: row.neighbourhood,
+          created_at: row.created_at
+        });
+      }
+
+      // Detect language issues
+      if (row.language !== 'en') {
+        anomalies.push({
+          review_id: row.review_id,
+          type: 'language',
+          reason: `Non-English content (${row.language})`,
+          example: row.raw_text.substring(0, 50) + '...',
+          neighbourhood: row.neighbourhood,
+          created_at: row.created_at
+        });
+      }
+    });
+
+    return anomalies;
   }
 
   static calculateAverageSentiment(texts: string[]): SentimentResult {

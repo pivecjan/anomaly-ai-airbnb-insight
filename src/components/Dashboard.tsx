@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, MapPin, Calendar, AlertTriangle, FileText } from "lucide-react";
 import { useCSVDataStore } from "@/store/csvDataStore";
@@ -13,7 +12,6 @@ import SentimentTimeline from "./SentimentTimeline";
 const Dashboard = () => {
   const { cleanedData, isDataReady } = useCSVDataStore();
   const [selectedNeighbourhood, setSelectedNeighbourhood] = useState("all");
-  const [dateRange, setDateRange] = useState([0, 100]);
   const [selectedLanguage, setSelectedLanguage] = useState("all");
 
   const analytics = useMemo(() => {
@@ -59,13 +57,28 @@ const Dashboard = () => {
 
     const anomalyCount = Math.floor(filteredData.length * 0.05);
 
+    // Calculate neighbourhood frequency for better dropdown management
+    const neighbourhoodCounts = cleanedData.reduce((acc, row) => {
+      const neighbourhood = row.neighbourhood;
+      if (neighbourhood && neighbourhood.trim() !== '') {
+        acc[neighbourhood] = (acc[neighbourhood] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const topNeighbourhoods = Object.entries(neighbourhoodCounts)
+      .sort(([,a], [,b]) => b - a) // Sort by frequency descending
+      .slice(0, 15) // Top 15 most frequent
+      .map(([neighbourhood]) => neighbourhood)
+      .sort(); // Then sort alphabetically for display
+
     return {
       totalReviews: filteredData.length,
       anomalyCount,
       timeSeriesData,
       languageData,
-      neighbourhoods: [...new Set(cleanedData.map(row => row.neighbourhood))],
-      languages: [...new Set(cleanedData.map(row => row.language))]
+      neighbourhoods: topNeighbourhoods,
+      languages: [...new Set(cleanedData.map(row => row.language).filter(l => l && l.trim() !== ''))]
     };
   }, [cleanedData, isDataReady, selectedNeighbourhood, selectedLanguage]);
 
@@ -93,7 +106,7 @@ const Dashboard = () => {
         <CardHeader>
           <CardTitle>Data Filters</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select onValueChange={setSelectedNeighbourhood}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select Neighbourhood" />
@@ -117,19 +130,6 @@ const Dashboard = () => {
               ))}
             </SelectContent>
           </Select>
-
-          <div>
-            <p className="text-sm text-slate-600 mb-2">Date Range</p>
-            <Slider
-              defaultValue={dateRange}
-              max={100}
-              step={1}
-              onValueChange={setDateRange}
-            />
-            <div className="text-xs text-slate-500 mt-1">
-              Range: {dateRange[0]}% - {dateRange[1]}%
-            </div>
-          </div>
         </CardContent>
       </Card>
 

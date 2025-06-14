@@ -185,7 +185,7 @@ const CSVUpload = () => {
             {uploadedFile ? uploadedFile.name : 'Drop your CSV file here'}
           </p>
           <p className="text-sm text-slate-600 mb-4">
-            Required structure: review_id, listing_id, neighbourhood, created_at, language, raw_text
+            Required structure: listing_id, date, comments, neighbourhood_cleansed
           </p>
           <Button variant="outline" onClick={() => document.getElementById('file-input')?.click()}>
             Choose File
@@ -280,8 +280,8 @@ const CSVUpload = () => {
 
         <div className="text-xs text-slate-500">
           <p><strong>Expected CSV format:</strong></p>
-          <p>review_id,listing_id,neighbourhood,created_at,language,raw_text</p>
-          <p>123,A1,Downtown,2024-01-15,en,"Great place to stay!"</p>
+          <p>listing_id,date,comments,neighbourhood_cleansed</p>
+          <p>41712,2022-11-20,"Great place to stay!",Southwark</p>
         </div>
       </CardContent>
     </Card>

@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, BarChart3, Database, Code, Palette, Play, AlertTriangle, FileText } from "lucide-react";
 import AgentCard from "@/components/AgentCard";
 import Dashboard from "@/components/Dashboard";
-import DataPreview from "@/components/DataPreview";
+import { DataPreview } from "@/components/DataPreview";
 import EnhancedAnomalyDetection from "@/components/EnhancedAnomalyDetection";
 import StorytellerInsights from "@/components/StorytellerInsights";
 import DataSidebar from "@/components/DataSidebar";
@@ -15,6 +15,7 @@ import EnhancedAnomalyTable from "@/components/EnhancedAnomalyTable";
 import { useToast } from "@/hooks/use-toast";
 import { useCSVDataStore } from "@/store/csvDataStore";
 import AnomalyInsights from "@/components/AnomalyInsights";
+import CompactCSVUpload from "@/components/CompactCSVUpload";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -194,13 +195,13 @@ const Index = () => {
                   <div>
                     <h3 className="font-semibold mb-2">Data Engineering Workflow</h3>
                     <ol className="space-y-2 text-sm text-slate-600">
-                      <li>1. Structural validation (6 columns, correct headers)</li>
+                      <li>1. Structural validation (4 columns: listing_id, date, comments, neighbourhood_cleansed)</li>
                       <li>2. Data cleaning (remove missing/duplicate entries)</li>
-                      <li>3. DateTime standardization (YYYY-MM-DD HH:MM:SS)</li>
-                      <li>4. Text normalization (encoding fixes, whitespace)</li>
-                      <li>5. Language detection and translation flagging</li>
-                      <li>6. Generate preprocessing report</li>
-                      <li>7. Output cleaned_reviews.csv</li>
+                      <li>3. DateTime standardization (YYYY-MM-DD format)</li>
+                      <li>4. Text normalization and cleaning</li>
+                      <li>5. Automatic language detection from comments</li>
+                      <li>6. Generate unique review IDs</li>
+                      <li>7. Output cleaned_reviews.csv with enhanced fields</li>
                     </ol>
                   </div>
                   <div>
@@ -220,7 +221,7 @@ const Index = () => {
             </TabsContent>
 
             <TabsContent value="data">
-              <DataPreview />
+              <DataPreview data={cleanedData} />
             </TabsContent>
 
             <TabsContent value="dashboard">

@@ -1,4 +1,3 @@
-
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -119,7 +118,7 @@ const EnhancedAnomalyDetection = () => {
   }, [anomalies, selectedNeighbourhood, selectedSeverity]);
 
   const neighbourhoods = useMemo(() => {
-    return [...new Set(anomalies.map(a => a.neighbourhood))];
+    return [...new Set(anomalies.map(a => a.neighbourhood).filter(n => n && n.trim() !== ''))];
   }, [anomalies]);
 
   const getSeverityColor = (severity: string) => {

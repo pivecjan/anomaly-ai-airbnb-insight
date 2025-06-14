@@ -1,4 +1,3 @@
-
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,7 +83,7 @@ const EnhancedAnomalyTable = () => {
   }, [anomalies, sentimentFilter, neighbourhoodFilter, sortField, sortDirection]);
 
   const neighbourhoods = useMemo(() => {
-    return [...new Set(anomalies.map(a => a.neighbourhood))];
+    return [...new Set(anomalies.map(a => a.neighbourhood).filter(n => n && n.trim() !== ''))];
   }, [anomalies]);
 
   const handleSort = (field: 'anomaly_score' | 'sentiment_score') => {

@@ -22,19 +22,17 @@ export interface CleanedRow {
 
 export class DataPreprocessor {
   private static readonly REQUIRED_HEADERS = [
-    'review_id',
-    'listing_id', 
-    'neighbourhood',
-    'created_at',
-    'language',
-    'raw_text'
+    'listing_id',
+    'date', 
+    'comments',
+    'neighbourhood_cleansed'
   ];
 
   static validateStructure(headers: string[]): string[] {
     const errors: string[] = [];
     
-    if (headers.length !== 6) {
-      errors.push(`Expected 6 columns, found ${headers.length}`);
+    if (headers.length !== 4) {
+      errors.push(`Expected 4 columns, found ${headers.length}`);
     }
 
     const normalizedHeaders = headers.map(h => h.trim().toLowerCase());
@@ -49,37 +47,62 @@ export class DataPreprocessor {
     return errors;
   }
 
-  static cleanText(text: string): string {
-    if (!text) return '';
-    
-    return text
-      .trim()
-      // Fix common encoding issues
-      .replace(/â€™/g, "'")
-      .replace(/â€œ/g, '"')
-      .replace(/â€\u009d/g, '"')
-      .replace(/â€"/g, '—')
-      .replace(/Ã¡/g, 'á')
-      .replace(/Ã©/g, 'é')
-      .replace(/Ã­/g, 'í')
-      .replace(/Ã³/g, 'ó')
-      .replace(/Ãº/g, 'ú')
-      .replace(/Ã±/g, 'ñ');
-  }
-
   static validateDate(dateString: string): boolean {
     if (!dateString) return false;
     
     const date = new Date(dateString);
-    const year = date.getFullYear();
+    if (isNaN(date.getTime())) return false;
     
-    // Discard dates outside plausible Airbnb history (pre-2008 or future dates)
-    return !isNaN(date.getTime()) && year >= 2008 && year <= new Date().getFullYear();
+    const currentDate = new Date();
+    const minDate = new Date('2008-01-01'); // Airbnb founded in 2008
+    
+    return date >= minDate && date <= currentDate;
   }
 
   static standardizeDate(dateString: string): string {
     const date = new Date(dateString);
-    return date.toISOString().slice(0, 19).replace('T', ' ');
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+  }
+
+  static cleanText(text: string): string {
+    if (!text) return '';
+    return text
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s.,!?;:()\-'"]/g, '');
+  }
+
+  static detectLanguage(text: string): string {
+    if (!text) return 'en';
+    
+    // Simple language detection - you could integrate with a proper language detection library
+    const germanWords = ['der', 'die', 'das', 'und', 'ist', 'war', 'sehr', 'gut', 'schön'];
+    const frenchWords = ['le', 'la', 'les', 'et', 'est', 'était', 'très', 'bien', 'beau'];
+    const spanishWords = ['el', 'la', 'los', 'y', 'es', 'era', 'muy', 'bien', 'bueno'];
+    
+    const lowerText = text.toLowerCase();
+    
+    let germanCount = 0;
+    let frenchCount = 0;
+    let spanishCount = 0;
+    
+    germanWords.forEach(word => {
+      if (lowerText.includes(word)) germanCount++;
+    });
+    
+    frenchWords.forEach(word => {
+      if (lowerText.includes(word)) frenchCount++;
+    });
+    
+    spanishWords.forEach(word => {
+      if (lowerText.includes(word)) spanishCount++;
+    });
+    
+    if (germanCount >= 2) return 'de';
+    if (frenchCount >= 2) return 'fr';
+    if (spanishCount >= 2) return 'es';
+    
+    return 'en'; // Default to English
   }
 
   static preprocessData(rawData: any[]): { cleanedData: CleanedRow[], report: PreprocessingReport } {
@@ -103,21 +126,24 @@ export class DataPreprocessor {
       let removalReason = '';
 
       // Check for missing critical data
-      if (!row.review_id || !row.raw_text) {
+      if (!row.listing_id || !row.comments) {
         shouldRemove = true;
-        removalReason = 'missing review_id or raw_text';
+        removalReason = 'missing listing_id or comments';
         report.missingDataRemoved++;
       }
 
+      // Generate unique review ID from listing_id + date + first 10 chars of comment
+      const reviewId = `${row.listing_id}_${row.date}_${(row.comments || '').substring(0, 10).replace(/\s/g, '')}`;
+      
       // Check for duplicates
-      if (!shouldRemove && seenReviewIds.has(row.review_id)) {
+      if (!shouldRemove && seenReviewIds.has(reviewId)) {
         shouldRemove = true;
-        removalReason = 'duplicate review_id';
+        removalReason = 'duplicate review';
         report.duplicatesRemoved++;
       }
 
-      // Validate date with enhanced logic
-      if (!shouldRemove && !this.validateDate(row.created_at)) {
+      // Validate date
+      if (!shouldRemove && !this.validateDate(row.date)) {
         shouldRemove = true;
         removalReason = 'invalid or implausible date';
         report.invalidDatesRemoved++;
@@ -129,26 +155,29 @@ export class DataPreprocessor {
         continue;
       }
 
+      // Detect language from comments
+      const detectedLanguage = this.detectLanguage(row.comments);
+
       // Clean and process the row
       const cleanedRow: CleanedRow = {
-        review_id: row.review_id.toString().trim(),
+        review_id: reviewId,
         listing_id: row.listing_id.toString().trim(),
-        neighbourhood: this.cleanText(row.neighbourhood || ''),
-        created_at: this.standardizeDate(row.created_at),
-        language: (row.language || 'en').toLowerCase().trim(),
-        raw_text: this.cleanText(row.raw_text),
-        needs_translation: (row.language || 'en').toLowerCase() !== 'en'
+        neighbourhood: row.neighbourhood_cleansed?.trim() || '',
+        created_at: this.standardizeDate(row.date),
+        language: detectedLanguage,
+        raw_text: this.cleanText(row.comments),
+        needs_translation: detectedLanguage !== 'en'
       };
 
       // Update language distribution
       const lang = cleanedRow.language;
       report.languageDistribution[lang] = (report.languageDistribution[lang] || 0) + 1;
       
-      if (cleanedRow.needs_translation) {
+      if (lang !== 'en') {
         report.nonEnglishCount++;
       }
 
-      seenReviewIds.add(cleanedRow.review_id);
+      seenReviewIds.add(reviewId);
       cleanedData.push(cleanedRow);
     }
 
@@ -157,25 +186,27 @@ export class DataPreprocessor {
   }
 
   static generateReportSummary(report: PreprocessingReport): string {
-    const lines = [
-      `=== Data Preprocessing Report ===`,
-      `Original rows: ${report.originalRows}`,
-      `Cleaned rows: ${report.cleanedRows}`,
-      `Removed rows: ${report.removedRows}`,
-      ``,
-      `Removal breakdown:`,
-      `- Missing data: ${report.missingDataRemoved}`,
-      `- Duplicates: ${report.duplicatesRemoved}`,
-      `- Invalid dates: ${report.invalidDatesRemoved}`,
-      ``,
-      `Language distribution:`,
-      ...Object.entries(report.languageDistribution).map(([lang, count]) => 
-        `- ${lang}: ${count} (${((count / report.cleanedRows) * 100).toFixed(1)}%)`
-      ),
-      ``,
-      `Non-English reviews: ${report.nonEnglishCount} (${((report.nonEnglishCount / report.cleanedRows) * 100).toFixed(1)}%)`
-    ];
+    return `
+Data Preprocessing Report
+========================
 
-    return lines.join('\n');
+Input Data:
+- Original rows: ${report.originalRows}
+- Cleaned rows: ${report.cleanedRows}
+- Removed rows: ${report.removedRows}
+
+Removal Reasons:
+- Missing data: ${report.missingDataRemoved}
+- Duplicates: ${report.duplicatesRemoved}
+- Invalid dates: ${report.invalidDatesRemoved}
+
+Language Analysis:
+- Non-English reviews: ${report.nonEnglishCount}
+- Language distribution: ${JSON.stringify(report.languageDistribution, null, 2)}
+
+Errors:
+${report.errors.length > 0 ? report.errors.slice(0, 10).join('\n') : 'None'}
+${report.errors.length > 10 ? `... and ${report.errors.length - 10} more` : ''}
+    `.trim();
   }
 }

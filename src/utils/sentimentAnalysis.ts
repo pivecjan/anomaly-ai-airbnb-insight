@@ -119,8 +119,23 @@ export class SentimentAnalyzer {
     };
   }
 
+  static validateDate(dateString: string): boolean {
+    if (!dateString) return false;
+    
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    
+    // Discard dates outside plausible Airbnb history (pre-2008 or future dates)
+    return !isNaN(date.getTime()) && year >= 2008 && year <= new Date().getFullYear();
+  }
+
   static calculateTimelineSentiment(data: Array<{created_at: string, raw_text: string}>): TimelineSentiment[] {
-    const monthlyGroups = data.reduce((acc, row) => {
+    // Filter out invalid dates
+    const validData = data.filter(row => this.validateDate(row.created_at));
+    
+    if (validData.length === 0) return [];
+
+    const monthlyGroups = validData.reduce((acc, row) => {
       const date = new Date(row.created_at);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
@@ -153,9 +168,11 @@ export class SentimentAnalyzer {
   }
 
   static detectAnomalies(data: Array<{review_id: string, raw_text: string, neighbourhood: string, created_at: string, language: string}>): AnomalyMetadata[] {
+    // Filter out invalid dates first
+    const validData = data.filter(row => this.validateDate(row.created_at));
     const anomalies: AnomalyMetadata[] = [];
 
-    data.forEach(row => {
+    validData.forEach(row => {
       const text = row.raw_text.toLowerCase();
       
       // Detect complaints

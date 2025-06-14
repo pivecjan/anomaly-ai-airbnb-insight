@@ -1,4 +1,3 @@
-
 export interface PreprocessingReport {
   originalRows: number;
   cleanedRows: number;
@@ -72,7 +71,10 @@ export class DataPreprocessor {
     if (!dateString) return false;
     
     const date = new Date(dateString);
-    return !isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2030;
+    const year = date.getFullYear();
+    
+    // Discard dates outside plausible Airbnb history (pre-2008 or future dates)
+    return !isNaN(date.getTime()) && year >= 2008 && year <= new Date().getFullYear();
   }
 
   static standardizeDate(dateString: string): string {
@@ -114,10 +116,10 @@ export class DataPreprocessor {
         report.duplicatesRemoved++;
       }
 
-      // Validate date
+      // Validate date with enhanced logic
       if (!shouldRemove && !this.validateDate(row.created_at)) {
         shouldRemove = true;
-        removalReason = 'invalid date format';
+        removalReason = 'invalid or implausible date';
         report.invalidDatesRemoved++;
       }
 

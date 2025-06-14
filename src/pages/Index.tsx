@@ -9,8 +9,9 @@ import AgentCard from "@/components/AgentCard";
 import Dashboard from "@/components/Dashboard";
 import DataPreview from "@/components/DataPreview";
 import EnhancedAnomalyDetection from "@/components/EnhancedAnomalyDetection";
-import CompactCSVUpload from "@/components/CompactCSVUpload";
 import StorytellerInsights from "@/components/StorytellerInsights";
+import DataSidebar from "@/components/DataSidebar";
+import EnhancedAnomalyTable from "@/components/EnhancedAnomalyTable";
 import { useToast } from "@/hooks/use-toast";
 import { useCSVDataStore } from "@/store/csvDataStore";
 import AnomalyInsights from "@/components/AnomalyInsights";
@@ -120,76 +121,78 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-slate-800 mb-2">
-            Airbnb Review Anomaly Detection
-          </h1>
-          <p className="text-lg text-slate-600 max-w-3xl mx-auto">
-            Multi-agent AI system with advanced CSV preprocessing for analyzing review datasets
-          </p>
-          <Badge variant="outline" className="text-sm">
-            <AlertTriangle className="w-4 h-4 mr-1" />
-            6 AI Agents Active
-          </Badge>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
+      {/* Left Sidebar */}
+      <DataSidebar />
+      
+      {/* Main Content */}
+      <div className="flex-1 p-6">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Header */}
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold text-slate-800 mb-2">
+              Airbnb Review Anomaly Detection
+            </h1>
+            <p className="text-lg text-slate-600 max-w-3xl mx-auto">
+              Multi-agent AI system with advanced CSV preprocessing for analyzing review datasets
+            </p>
+            <Badge variant="outline" className="text-sm">
+              <AlertTriangle className="w-4 h-4 mr-1" />
+              6 AI Agents Active
+            </Badge>
+          </div>
 
-        {/* Compact CSV Upload Section */}
-        <CompactCSVUpload />
+          {/* Analysis Controls */}
+          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Play className="w-5 h-5" />
+                Analysis Control Center
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Button 
+                  onClick={startAnalysis} 
+                  disabled={isAnalyzing || !isDataReady}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isAnalyzing ? "Analyzing..." : "Start Analysis"}
+                </Button>
+                {isDataReady && (
+                  <div className="text-sm text-slate-600">
+                    Ready to analyze {cleanedData.length.toLocaleString()} cleaned reviews
+                  </div>
+                )}
+                {isAnalyzing && (
+                  <div className="flex-1 max-w-md">
+                    <Progress value={analysisProgress} className="h-2" />
+                    <p className="text-sm text-slate-600 mt-1">{analysisProgress}% Complete</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Analysis Controls */}
-        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Play className="w-5 h-5" />
-              Analysis Control Center
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Button 
-                onClick={startAnalysis} 
-                disabled={isAnalyzing || !isDataReady}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isAnalyzing ? "Analyzing..." : "Start Analysis"}
-              </Button>
-              {isDataReady && (
-                <div className="text-sm text-slate-600">
-                  Ready to analyze {cleanedData.length.toLocaleString()} cleaned reviews
-                </div>
-              )}
-              {isAnalyzing && (
-                <div className="flex-1 max-w-md">
-                  <Progress value={analysisProgress} className="h-2" />
-                  <p className="text-sm text-slate-600 mt-1">{analysisProgress}% Complete</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+          {/* Agents Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {agents.map((agent) => (
+              <AgentCard key={agent.id} agent={agent} isActive={isAnalyzing} />
+            ))}
+          </div>
 
-        {/* Agents Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {agents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} isActive={isAnalyzing} />
-          ))}
-        </div>
+          {/* Main Content Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-5 bg-white/80 backdrop-blur-sm">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="data">Data Preview</TabsTrigger>
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
+              <TabsTrigger value="insights">Insights</TabsTrigger>
+            </TabsList>
 
-        {/* Main Content Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-white/80 backdrop-blur-sm">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="data">Data Preview</TabsTrigger>
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
-            <TabsTrigger value="insights">Insights</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
-            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+            <TabsContent value="overview" className="space-y-6">
+              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader>
                 <CardTitle>Enhanced System Overview</CardTitle>
               </CardHeader>
@@ -221,24 +224,28 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="data">
-            <DataPreview />
-          </TabsContent>
+            <TabsContent value="data">
+              <DataPreview />
+            </TabsContent>
 
-          <TabsContent value="dashboard">
-            <Dashboard />
-          </TabsContent>
+            <TabsContent value="dashboard">
+              <Dashboard />
+            </TabsContent>
 
-          <TabsContent value="anomalies">
-            <AnomalyInsights />
-          </TabsContent>
+            <TabsContent value="anomalies">
+              <div className="space-y-6">
+                <EnhancedAnomalyTable />
+                <AnomalyInsights />
+              </div>
+            </TabsContent>
 
-          <TabsContent value="insights">
-            <StorytellerInsights />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="insights">
+              <StorytellerInsights />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );

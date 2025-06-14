@@ -1,14 +1,14 @@
-
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, FileText, CheckCircle, AlertTriangle } from "lucide-react";
+import { Upload, FileText, CheckCircle, AlertTriangle, Download, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { DataPreprocessor, PreprocessingReport, CleanedRow } from "@/utils/dataPreprocessing";
 
 interface CSVUploadProps {
-  onDataUpload: (data: any[]) => void;
+  onDataUpload: (data: CleanedRow[]) => void;
 }
 
 const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
@@ -16,44 +16,9 @@ const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [preprocessingReport, setPreprocessingReport] = useState<PreprocessingReport | null>(null);
+  const [cleanedData, setCleanedData] = useState<CleanedRow[]>([]);
   const { toast } = useToast();
-
-  const requiredFields = ['review_id', 'listing_id', 'neighbourhood', 'created_at', 'language', 'raw_text'];
-
-  const validateCSVStructure = (data: any[]) => {
-    const errors: string[] = [];
-    
-    if (data.length === 0) {
-      errors.push("CSV file is empty");
-      return errors;
-    }
-
-    const headers = Object.keys(data[0]);
-    const missingFields = requiredFields.filter(field => !headers.includes(field));
-    
-    if (missingFields.length > 0) {
-      errors.push(`Missing required fields: ${missingFields.join(', ')}`);
-    }
-
-    // Check date format in created_at
-    const sampleDates = data.slice(0, 10).map(row => row.created_at);
-    const invalidDates = sampleDates.filter(date => isNaN(Date.parse(date)));
-    
-    if (invalidDates.length > 0) {
-      errors.push("Invalid date format in created_at field. Expected: YYYY-MM-DD or ISO format");
-    }
-
-    // Check for empty required fields
-    const emptyFields = requiredFields.filter(field => 
-      data.some(row => !row[field] || row[field].toString().trim() === '')
-    );
-    
-    if (emptyFields.length > 0) {
-      errors.push(`Empty values found in: ${emptyFields.join(', ')}`);
-    }
-
-    return errors;
-  };
 
   const parseCSV = (text: string): any[] => {
     const lines = text.split('\n');
@@ -74,39 +39,101 @@ const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
   const handleFileUpload = useCallback(async (file: File) => {
     setValidationStatus('validating');
     setUploadedFile(file);
+    setValidationErrors([]);
+    setPreprocessingReport(null);
 
     try {
       const text = await file.text();
-      const data = parseCSV(text);
-      const errors = validateCSVStructure(data);
+      const lines = text.split('\n');
+      
+      if (lines.length < 2) {
+        throw new Error('CSV file must contain at least a header and one data row');
+      }
 
-      if (errors.length > 0) {
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      
+      // Validate CSV structure
+      const structureErrors = DataPreprocessor.validateStructure(headers);
+      if (structureErrors.length > 0) {
         setValidationStatus('invalid');
-        setValidationErrors(errors);
+        setValidationErrors(structureErrors);
         toast({
-          title: "CSV Validation Failed",
-          description: `Found ${errors.length} validation errors`,
+          title: "CSV Structure Invalid",
+          description: `Found ${structureErrors.length} structural errors`,
           variant: "destructive"
         });
-      } else {
-        setValidationStatus('valid');
-        setValidationErrors([]);
-        onDataUpload(data);
-        toast({
-          title: "CSV Upload Successful",
-          description: `Loaded ${data.length} reviews for analysis`,
-        });
+        return;
       }
+
+      // Parse and preprocess data
+      const rawData = parseCSV(text);
+      const { cleanedData, report } = DataPreprocessor.preprocessData(rawData);
+
+      setCleanedData(cleanedData);
+      setPreprocessingReport(report);
+
+      if (cleanedData.length === 0) {
+        setValidationStatus('invalid');
+        setValidationErrors(['No valid data rows after preprocessing']);
+        toast({
+          title: "Data Processing Failed",
+          description: "All rows were removed during preprocessing",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setValidationStatus('valid');
+      onDataUpload(cleanedData);
+      
+      toast({
+        title: "CSV Processing Complete",
+        description: `Processed ${cleanedData.length} valid reviews from ${rawData.length} original rows`,
+      });
+
     } catch (error) {
       setValidationStatus('invalid');
-      setValidationErrors(["Failed to parse CSV file"]);
+      setValidationErrors([error instanceof Error ? error.message : "Failed to process CSV file"]);
       toast({
-        title: "Upload Error",
-        description: "Failed to read the CSV file",
+        title: "Processing Error",
+        description: "Failed to process the CSV file",
         variant: "destructive"
       });
     }
   }, [onDataUpload, toast]);
+
+  const downloadCleanedData = () => {
+    if (cleanedData.length === 0) return;
+
+    const headers = ['review_id', 'listing_id', 'neighbourhood', 'created_at', 'language', 'raw_text', 'needs_translation'];
+    const csvContent = [
+      headers.join(','),
+      ...cleanedData.map(row => 
+        headers.map(header => `"${row[header as keyof CleanedRow]}"`).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cleaned_reviews.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadReport = () => {
+    if (!preprocessingReport) return;
+
+    const reportContent = DataPreprocessor.generateReportSummary(preprocessingReport);
+    const blob = new Blob([reportContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'preprocessing_report.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -136,7 +163,7 @@ const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Upload className="w-5 h-5" />
-          CSV Data Upload
+          Data Engineer Agent - CSV Processing
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -156,7 +183,7 @@ const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
             {uploadedFile ? uploadedFile.name : 'Drop your CSV file here'}
           </p>
           <p className="text-sm text-slate-600 mb-4">
-            Required fields: review_id, listing_id, neighbourhood, created_at, language, raw_text
+            Required structure: review_id, listing_id, neighbourhood, created_at, language, raw_text
           </p>
           <Button variant="outline" onClick={() => document.getElementById('file-input')?.click()}>
             Choose File
@@ -171,21 +198,21 @@ const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
         </div>
 
         {validationStatus !== 'idle' && (
-          <div className="space-y-2">
+          <div className="space-y-4">
             <div className="flex items-center gap-2">
               {validationStatus === 'validating' && (
-                <Badge variant="secondary">Validating...</Badge>
+                <Badge variant="secondary">Processing...</Badge>
               )}
               {validationStatus === 'valid' && (
                 <Badge variant="default" className="bg-green-500">
                   <CheckCircle className="w-3 h-3 mr-1" />
-                  Valid CSV Structure
+                  Data Processed Successfully
                 </Badge>
               )}
               {validationStatus === 'invalid' && (
                 <Badge variant="destructive">
                   <AlertTriangle className="w-3 h-3 mr-1" />
-                  Validation Failed
+                  Processing Failed
                 </Badge>
               )}
             </div>
@@ -202,13 +229,57 @@ const CSVUpload = ({ onDataUpload }: CSVUploadProps) => {
                 </AlertDescription>
               </Alert>
             )}
+
+            {preprocessingReport && (
+              <div className="space-y-4">
+                <Card className="bg-slate-50 border-slate-200">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      Preprocessing Report
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-slate-500">Original Rows:</span>
+                        <span className="ml-2 font-medium">{preprocessingReport.originalRows}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Cleaned Rows:</span>
+                        <span className="ml-2 font-medium text-green-600">{preprocessingReport.cleanedRows}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Removed Rows:</span>
+                        <span className="ml-2 font-medium text-red-600">{preprocessingReport.removedRows}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Non-English:</span>
+                        <span className="ml-2 font-medium text-blue-600">{preprocessingReport.nonEnglishCount}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={downloadCleanedData}>
+                        <Download className="w-3 h-3 mr-1" />
+                        Download Cleaned CSV
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={downloadReport}>
+                        <Download className="w-3 h-3 mr-1" />
+                        Download Report
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
         )}
 
         <div className="text-xs text-slate-500">
           <p><strong>Expected CSV format:</strong></p>
           <p>review_id,listing_id,neighbourhood,created_at,language,raw_text</p>
-          <p>1,2539,"Downtown",2023-05-14,en,"Amazing place! Clean and comfortable."</p>
+          <p>123,A1,Downtown,2024-01-15,en,"Great place to stay!"</p>
         </div>
       </CardContent>
     </Card>

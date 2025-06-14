@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,12 +12,13 @@ import AnomalyDetection from "@/components/AnomalyDetection";
 import CSVUpload from "@/components/CSVUpload";
 import StorytellerInsights from "@/components/StorytellerInsights";
 import { useToast } from "@/hooks/use-toast";
+import { CleanedRow } from "@/utils/dataPreprocessing";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [csvData, setCsvData] = useState(null);
+  const [csvData, setCsvData] = useState<CleanedRow[] | null>(null);
   const { toast } = useToast();
 
   const agents = [
@@ -94,8 +94,8 @@ const Index = () => {
     // Enhanced agent workflow for CSV processing
     const steps = [
       { agent: "engineer", message: "Validating CSV structure and parsing dates...", progress: 15 },
-      { agent: "engineer", message: "Grouping reviews by listing_id and neighbourhood...", progress: 25 },
-      { agent: "engineer", message: "Detecting language distribution...", progress: 35 },
+      { agent: "engineer", message: "Cleaning data and removing duplicates...", progress: 25 },
+      { agent: "engineer", message: "Standardizing text encoding and language detection...", progress: 35 },
       { agent: "analytical", message: "Analyzing review volume trends over time...", progress: 45 },
       { agent: "analytical", message: "Computing sentiment distribution by neighbourhood...", progress: 55 },
       { agent: "scientist", message: "Detecting fake reviews and complaint patterns...", progress: 70 },
@@ -127,7 +127,7 @@ const Index = () => {
             Airbnb Review Anomaly Detection
           </h1>
           <p className="text-lg text-slate-600 max-w-3xl mx-auto">
-            Multi-agent AI system for analyzing CSV datasets with review_id, listing_id, neighbourhood, created_at, language, and raw_text fields
+            Multi-agent AI system with advanced CSV preprocessing for analyzing review datasets
           </p>
           <Badge variant="outline" className="text-sm">
             <AlertTriangle className="w-4 h-4 mr-1" />
@@ -155,6 +155,11 @@ const Index = () => {
               >
                 {isAnalyzing ? "Analyzing..." : "Start Analysis"}
               </Button>
+              {csvData && (
+                <div className="text-sm text-slate-600">
+                  Ready to analyze {csvData.length} cleaned reviews
+                </div>
+              )}
               {isAnalyzing && (
                 <div className="flex-1 max-w-md">
                   <Progress value={analysisProgress} className="h-2" />
@@ -190,26 +195,26 @@ const Index = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h3 className="font-semibold mb-2">Enhanced Agent Workflow</h3>
+                    <h3 className="font-semibold mb-2">Data Engineering Workflow</h3>
                     <ol className="space-y-2 text-sm text-slate-600">
-                      <li>1. Data Engineer validates CSV structure (review_id, listing_id, neighbourhood, created_at, language, raw_text)</li>
-                      <li>2. Parse created_at for time-series analysis</li>
-                      <li>3. Group reviews by listing_id and neighbourhood</li>
-                      <li>4. Analytical Agent analyzes trends and sentiment</li>
-                      <li>5. Data Scientist detects anomalies and fake reviews</li>
-                      <li>6. Storyteller Agent generates human-readable insights</li>
-                      <li>7. Creative Agent builds interactive dashboard</li>
+                      <li>1. Structural validation (6 columns, correct headers)</li>
+                      <li>2. Data cleaning (remove missing/duplicate entries)</li>
+                      <li>3. DateTime standardization (YYYY-MM-DD HH:MM:SS)</li>
+                      <li>4. Text normalization (encoding fixes, whitespace)</li>
+                      <li>5. Language detection and translation flagging</li>
+                      <li>6. Generate preprocessing report</li>
+                      <li>7. Output cleaned_reviews.csv</li>
                     </ol>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">New Features</h3>
+                    <h3 className="font-semibold mb-2">Validation Features</h3>
                     <ul className="space-y-2 text-sm text-slate-600">
-                      <li>• CSV file upload and validation</li>
-                      <li>• Time-series analysis with created_at</li>
-                      <li>• Neighbourhood-based filtering</li>
-                      <li>• Language detection and analysis</li>
-                      <li>• Storyteller insights generation</li>
-                      <li>• Interactive time and location filters</li>
+                      <li>• Strict CSV structure validation</li>
+                      <li>• Automatic duplicate removal</li>
+                      <li>• Date format validation and parsing</li>
+                      <li>• Text encoding normalization</li>
+                      <li>• Language distribution analysis</li>
+                      <li>• Downloadable cleaned datasets</li>
                     </ul>
                   </div>
                 </div>

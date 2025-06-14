@@ -221,7 +221,7 @@ const Index = () => {
             </TabsContent>
 
             <TabsContent value="data">
-              <DataPreview data={cleanedData} />
+              <DataPreview />
             </TabsContent>
 
             <TabsContent value="dashboard">

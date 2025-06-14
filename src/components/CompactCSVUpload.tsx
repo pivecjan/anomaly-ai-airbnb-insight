@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ const CompactCSVUpload = () => {
   const { 
     cleanedData, 
     preprocessingReport, 
+    setRawData,
     setCleanedData, 
     setPreprocessingReport, 
     clearData 
@@ -76,6 +76,7 @@ const CompactCSVUpload = () => {
 
       // Parse and preprocess data
       const rawData = parseCSV(text);
+      setRawData(rawData);
       const { cleanedData, report } = DataPreprocessor.preprocessData(rawData);
 
       clearInterval(progressInterval);
@@ -105,7 +106,7 @@ const CompactCSVUpload = () => {
       setIsProcessing(false);
       setUploadProgress(0);
     }
-  }, [setCleanedData, setPreprocessingReport, clearData, toast]);
+  }, [setCleanedData, setPreprocessingReport, setRawData, clearData, toast]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

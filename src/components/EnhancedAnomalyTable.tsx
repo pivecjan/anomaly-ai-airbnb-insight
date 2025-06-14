@@ -27,6 +27,8 @@ const EnhancedAnomalyTable = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [sentimentFilter, setSentimentFilter] = useState('all');
   const [neighbourhoodFilter, setNeighbourhoodFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 20;
 
   const anomalies = useMemo(() => {
     if (!isDataReady || cleanedData.length === 0) {
@@ -81,6 +83,15 @@ const EnhancedAnomalyTable = () => {
       return sortDirection === 'desc' ? bVal - aVal : aVal - bVal;
     });
   }, [anomalies, sentimentFilter, neighbourhoodFilter, sortField, sortDirection]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredAndSortedAnomalies.length / recordsPerPage);
+  const startIndex = (currentPage - 1) * recordsPerPage;
+  const endIndex = startIndex + recordsPerPage;
+  const currentPageData = filteredAndSortedAnomalies.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  const resetPage = () => setCurrentPage(1);
 
   const neighbourhoods = useMemo(() => {
     if (!isDataReady || cleanedData.length === 0) {
@@ -152,7 +163,7 @@ const EnhancedAnomalyTable = () => {
         
         {/* Filters */}
         <div className="flex gap-4 mt-4">
-          <Select onValueChange={setSentimentFilter} defaultValue="all">
+          <Select onValueChange={(value) => { setSentimentFilter(value); resetPage(); }} defaultValue="all">
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filter by Sentiment" />
             </SelectTrigger>
@@ -164,7 +175,7 @@ const EnhancedAnomalyTable = () => {
             </SelectContent>
           </Select>
 
-          <Select onValueChange={setNeighbourhoodFilter} defaultValue="all">
+          <Select onValueChange={(value) => { setNeighbourhoodFilter(value); resetPage(); }} defaultValue="all">
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filter by Neighbourhood" />
             </SelectTrigger>
@@ -184,7 +195,6 @@ const EnhancedAnomalyTable = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Review ID</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -213,11 +223,8 @@ const EnhancedAnomalyTable = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSortedAnomalies.map((anomaly) => (
+            {currentPageData.map((anomaly) => (
               <TableRow key={anomaly.review_id}>
-                <TableCell className="font-mono text-sm">
-                  {anomaly.review_id}
-                </TableCell>
                 <TableCell>
                   <span className={`font-medium ${getSentimentColor(anomaly.sentiment_score)}`}>
                     {anomaly.sentiment_score}
@@ -281,6 +288,36 @@ const EnhancedAnomalyTable = () => {
             ))}
           </TableBody>
         </Table>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4 px-2">
+            <div className="text-sm text-gray-600">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredAndSortedAnomalies.length)} of {filteredAndSortedAnomalies.length} records
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -19,6 +19,7 @@ interface EnhancedAnomaly {
   created_at: string;
   anomaly_type: string;
   reason: string;
+  detailedReason: string;
 }
 
 const EnhancedAnomalyTable = () => {
@@ -29,6 +30,66 @@ const EnhancedAnomalyTable = () => {
   const [neighbourhoodFilter, setNeighbourhoodFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 20;
+
+  // Function to generate detailed reasons for anomaly detection
+  const generateDetailedReason = (anomaly: any, originalRow: any, sentiment: any): string => {
+    const reasons = [];
+    
+    // Sentiment-based reasons
+    if (sentiment.score < -0.5) {
+      reasons.push("Extremely negative sentiment detected, indicating potential serious issues or complaints");
+    } else if (sentiment.score > 0.8) {
+      reasons.push("Unusually positive sentiment that may indicate fake or incentivized reviews");
+    } else if (Math.abs(sentiment.score) < 0.1) {
+      reasons.push("Neutral sentiment with low emotional engagement, potentially indicating generic or template content");
+    }
+
+    // Language-based reasons
+    if (originalRow.language !== 'en') {
+      reasons.push(`Non-English content (${originalRow.language.toUpperCase()}) may require translation verification and cultural context analysis`);
+    }
+
+    // Text length and quality reasons
+    const wordCount = originalRow.raw_text.split(' ').length;
+    if (wordCount < 5) {
+      reasons.push("Extremely short review with insufficient detail, potentially indicating low-effort or spam content");
+    } else if (wordCount > 200) {
+      reasons.push("Unusually long review that may contain excessive detail or promotional content");
+    }
+
+    // Content pattern reasons
+    const text = originalRow.raw_text.toLowerCase();
+    if (anomaly.type === 'complaint') {
+      const complaintKeywords = ['dirty', 'clean', 'smell', 'noise', 'broken', 'uncomfortable', 'rude', 'terrible'];
+      const foundKeywords = complaintKeywords.filter(keyword => text.includes(keyword));
+      if (foundKeywords.length > 0) {
+        reasons.push(`Contains complaint indicators: ${foundKeywords.join(', ')}. May indicate service quality issues requiring attention`);
+      }
+    }
+
+    if (anomaly.type === 'suspicious') {
+      if (/(.)\1{3,}/.test(text)) {
+        reasons.push("Contains repetitive character patterns that may indicate automated or low-quality content generation");
+      }
+      if (text.includes('perfect') && text.includes('amazing') && text.includes('recommend')) {
+        reasons.push("Uses multiple superlative terms commonly found in fake positive reviews");
+      }
+    }
+
+    // Temporal and contextual reasons
+    const reviewDate = new Date(originalRow.created_at);
+    const dayOfWeek = reviewDate.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      reasons.push("Posted on weekend, which may indicate different guest behavior patterns or potential review manipulation timing");
+    }
+
+    // Default reason if no specific patterns found
+    if (reasons.length === 0) {
+      reasons.push(`Flagged as ${anomaly.type} anomaly based on statistical deviation from normal review patterns in this dataset`);
+    }
+
+    return reasons.join('. ');
+  };
 
   const anomalies = useMemo(() => {
     if (!isDataReady || cleanedData.length === 0) {
@@ -57,7 +118,8 @@ const EnhancedAnomalyTable = () => {
         neighbourhood: anomaly.neighbourhood,
         created_at: anomaly.created_at,
         anomaly_type: anomaly.type,
-        reason: anomaly.reason
+        reason: anomaly.reason,
+        detailedReason: generateDetailedReason(anomaly, originalRow, sentiment)
       } as EnhancedAnomaly;
     }).filter(Boolean) as EnhancedAnomaly[];
   }, [cleanedData, isDataReady]);
@@ -249,7 +311,7 @@ const EnhancedAnomalyTable = () => {
                         View Full
                       </Button>
                     </SheetTrigger>
-                    <SheetContent>
+                    <SheetContent className="w-[600px] sm:w-[700px]">
                       <SheetHeader>
                         <SheetTitle>Review Details</SheetTitle>
                       </SheetHeader>
@@ -269,6 +331,12 @@ const EnhancedAnomalyTable = () => {
                         <div>
                           <label className="text-sm font-medium text-gray-500">Anomaly Type</label>
                           <p>{anomaly.anomaly_type} - {anomaly.reason}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Reason</label>
+                          <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p className="text-sm text-gray-700 leading-relaxed">{anomaly.detailedReason}</p>
+                          </div>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-gray-500">Scores</label>

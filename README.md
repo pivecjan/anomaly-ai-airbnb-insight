@@ -1,73 +1,233 @@
-# Welcome to your Lovable project
+# Airbnb Review Anomaly Detection System
 
-## Project info
+A sophisticated multi-agent AI system for detecting anomalies in Airbnb review data using advanced sentiment analysis, pattern recognition, and machine learning techniques.
 
-**URL**: https://lovable.dev/projects/f14bad18-8610-42c3-a4ed-6582c62c5802
+## 🌐 Live Demo
 
-## How can I edit this code?
+**Production URL**: https://pivecjan.github.io/anomaly-ai-airbnb-insight/
 
-There are several ways of editing your application.
+## 📋 Overview
 
-**Use Lovable**
+This application provides comprehensive anomaly detection for Airbnb review datasets, helping identify fake reviews, complaints, suspicious patterns, and data quality issues. The system features a modern React-based dashboard with real-time analytics and detailed reporting capabilities.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f14bad18-8610-42c3-a4ed-6582c62c5802) and start prompting.
+## ✨ Key Features
 
-Changes made via Lovable will be committed automatically to this repo.
+### 🔍 **Advanced Anomaly Detection**
+- **Sentiment Analysis**: Detects unusual sentiment patterns and emotional anomalies
+- **Fake Review Detection**: Identifies potentially fraudulent or incentivized reviews
+- **Complaint Analysis**: Flags reviews containing service quality issues
+- **Language Detection**: Analyzes multilingual content and translation needs
+- **Pattern Recognition**: Detects repetitive content and automated reviews
 
-**Use your preferred IDE**
+### 📊 **Interactive Dashboard**
+- **Real-time Analytics**: Live sentiment tracking over time
+- **Filterable Data**: Filter by neighbourhood, language, and sentiment
+- **Responsive Charts**: Interactive visualizations with Recharts
+- **Data Preview**: Smart CSV parsing with flexible column mapping
+- **Export Capabilities**: Download cleaned datasets and analysis reports
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 🤖 **Multi-Agent AI System**
+- **Data Engineer Agent**: CSV processing and data validation
+- **Sentiment Analyst Agent**: Emotion and sentiment pattern analysis
+- **Anomaly Detective Agent**: Pattern recognition and outlier detection
+- **Language Specialist Agent**: Multilingual content analysis
+- **Quality Assurance Agent**: Data integrity and validation
+- **Storyteller Agent**: Insights generation and reporting
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 📈 **Advanced Analytics**
+- **Sentiment Timeline**: Track sentiment changes over time (MM/YY format)
+- **Geographic Analysis**: Neighbourhood-based anomaly distribution
+- **Language Distribution**: Multilingual review analysis
+- **Temporal Patterns**: Time-based anomaly detection
+- **Statistical Insights**: Comprehensive data quality metrics
 
-Follow these steps:
+## 🚀 Getting Started
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Prerequisites
+- Node.js 18+ and npm
+- Modern web browser
+- CSV file with Airbnb review data
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Installation
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+# Clone the repository
+git clone https://github.com/pivecjan/anomaly-ai-airbnb-insight.git
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Navigate to project directory
+cd anomaly-ai-airbnb-insight
+
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### CSV Data Format
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+The system expects CSV files with the following structure:
+```csv
+listing_id,date,comments,neighbourhood_cleansed
+41712,2022-11-20,"Great place to stay!",Southwark
+```
 
-**Use GitHub Codespaces**
+**Supported Column Variations:**
+- **Listing ID**: `listing_id`, `listingId`, `id`, `Listing ID`
+- **Date**: `date`, `Date`, `created_at`, `review_date`
+- **Review Text**: `comments`, `comment`, `review`, `text`, `review_text`
+- **Location**: `neighbourhood_cleansed`, `neighbourhood`, `area`, `location`
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🛠️ Technology Stack
 
-## What technologies are used for this project?
+### Frontend
+- **React 18** - Modern UI framework
+- **TypeScript** - Type-safe development
+- **Vite** - Fast build tool and dev server
+- **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - High-quality component library
 
-This project is built with:
+### Data Processing
+- **Custom CSV Parser** - Robust parsing with quote handling
+- **Sentiment Analysis Engine** - Advanced NLP for emotion detection
+- **Anomaly Detection Algorithms** - Statistical and pattern-based detection
+- **Language Detection** - Multilingual content analysis
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Visualization
+- **Recharts** - Interactive charts and graphs
+- **Lucide React** - Modern icon system
+- **Responsive Design** - Mobile-first approach
 
-## How can I deploy this project?
+## 📖 Usage Guide
 
-Simply open [Lovable](https://lovable.dev/projects/f14bad18-8610-42c3-a4ed-6582c62c5802) and click on Share -> Publish.
+### 1. **Data Upload**
+- Click "Choose CSV File" in the sidebar
+- Upload your Airbnb review dataset
+- System automatically validates and processes the data
 
-## Can I connect a custom domain to my Lovable project?
+### 2. **Data Preview**
+- Review the parsed data in the "Data" tab
+- Verify column mapping and data quality
+- Check detected columns and statistics
 
-Yes, you can!
+### 3. **Dashboard Analytics**
+- Use filters to focus on specific neighbourhoods or languages
+- Monitor sentiment trends over time
+- Analyze review volume and distribution patterns
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### 4. **Anomaly Investigation**
+- Review detected anomalies in the anomaly table
+- Click "View Full" to see detailed analysis
+- Understand detection reasons and recommendations
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### 5. **Export Results**
+- Download cleaned datasets
+- Generate analysis reports
+- Export anomaly findings
+
+## 🔧 Configuration
+
+### Environment Variables
+```bash
+# Optional: Custom base path for deployment
+VITE_BASE_PATH=/your-custom-path/
+```
+
+### Build Configuration
+```bash
+# Production build
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+## 🚀 Deployment
+
+### GitHub Pages (Automatic)
+The application automatically deploys to GitHub Pages on every push to the main branch.
+
+### Manual Deployment
+```bash
+# Build for production
+npm run build
+
+# Deploy the dist/ folder to your hosting provider
+```
+
+## 🧪 Development
+
+### Project Structure
+```
+src/
+├── components/          # React components
+│   ├── ui/             # shadcn/ui components
+│   ├── Dashboard.tsx   # Main analytics dashboard
+│   ├── DataPreview.tsx # CSV data preview
+│   └── ...
+├── utils/              # Utility functions
+│   ├── csvParser.ts    # CSV parsing logic
+│   ├── sentimentAnalysis.ts # Sentiment analysis
+│   └── ...
+├── store/              # State management
+└── pages/              # Page components
+```
+
+### Key Components
+- **Dashboard**: Main analytics interface with filters and charts
+- **SentimentTimeline**: Time-series sentiment analysis
+- **EnhancedAnomalyTable**: Detailed anomaly investigation
+- **DataPreview**: Smart CSV preview with column mapping
+- **CompactCSVUpload**: File upload with validation
+
+## 📊 Anomaly Detection Methods
+
+### Sentiment-Based Detection
+- Extreme sentiment scores (very positive/negative)
+- Sentiment deviation from neighbourhood averages
+- Emotional pattern inconsistencies
+
+### Content Analysis
+- Repetitive language patterns
+- Keyword-based complaint detection
+- Text length and quality analysis
+- Superlative term clustering
+
+### Temporal Analysis
+- Review timing patterns
+- Clustering detection
+- Weekend vs weekday posting patterns
+
+### Language Analysis
+- Non-English content flagging
+- Translation quality assessment
+- Cultural context considerations
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [Lovable](https://lovable.dev) for rapid development
+- Powered by modern React ecosystem
+- Inspired by the need for transparent review analysis
+
+## 📞 Support
+
+For questions, issues, or feature requests:
+- Open an issue on GitHub
+- Check the [documentation](https://github.com/pivecjan/anomaly-ai-airbnb-insight/wiki)
+- Review the live demo at https://pivecjan.github.io/anomaly-ai-airbnb-insight/
+
+---
+
+**Made with ❤️ for transparent and trustworthy review analysis**

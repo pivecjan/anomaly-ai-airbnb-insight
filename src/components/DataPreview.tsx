@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -118,10 +117,10 @@ const DataPreview = ({ csvData }: DataPreviewProps) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {Object.entries(stats.languageDistribution).map(([lang, count]) => (
               <div key={lang} className="text-center p-3 bg-slate-50 rounded-lg">
-                <div className="text-2xl font-bold text-slate-800">{count}</div>
+                <div className="text-2xl font-bold text-slate-800">{count as number}</div>
                 <div className="text-sm text-slate-600">{lang.toUpperCase()}</div>
                 <div className="text-xs text-slate-500">
-                  {((count / stats.totalRecords) * 100).toFixed(1)}%
+                  {(((count as number) / stats.totalRecords) * 100).toFixed(1)}%
                 </div>
               </div>
             ))}

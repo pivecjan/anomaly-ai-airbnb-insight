@@ -83,8 +83,27 @@ const EnhancedAnomalyTable = () => {
   }, [anomalies, sentimentFilter, neighbourhoodFilter, sortField, sortDirection]);
 
   const neighbourhoods = useMemo(() => {
-    return [...new Set(anomalies.map(a => a.neighbourhood).filter(n => n && n.trim() !== ''))];
-  }, [anomalies]);
+    if (!isDataReady || cleanedData.length === 0) {
+      return [];
+    }
+
+    // Calculate neighbourhood frequency for better dropdown management (same logic as Dashboard)
+    const neighbourhoodCounts = cleanedData.reduce((acc, row) => {
+      const neighbourhood = row.neighbourhood;
+      if (neighbourhood && neighbourhood.trim() !== '') {
+        acc[neighbourhood] = (acc[neighbourhood] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const topNeighbourhoods = Object.entries(neighbourhoodCounts)
+      .sort(([,a], [,b]) => b - a) // Sort by frequency descending
+      .slice(0, 15) // Top 15 most frequent
+      .map(([neighbourhood]) => neighbourhood)
+      .sort(); // Then sort alphabetically for display
+
+    return topNeighbourhoods;
+  }, [cleanedData, isDataReady]);
 
   const handleSort = (field: 'anomaly_score' | 'sentiment_score') => {
     if (sortField === field) {

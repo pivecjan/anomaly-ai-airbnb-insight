@@ -11,15 +11,18 @@ interface SentimentTimelineProps {
 }
 
 const SentimentTimeline = ({ selectedNeighbourhood = "all", selectedLanguage = "all" }: SentimentTimelineProps) => {
-  const { cleanedData, isDataReady } = useCSVDataStore();
+  const { cleanedData, enhancedData, isDataReady, isEnhanced, isAnalysisStarted } = useCSVDataStore();
 
   const timelineData = useMemo(() => {
-    if (!isDataReady || cleanedData.length === 0) {
+    if (!isDataReady || cleanedData.length === 0 || !isAnalysisStarted) {
       return [];
     }
 
+    // Use enhanced data if available, otherwise use cleaned data
+    const dataToUse = isEnhanced && enhancedData.length > 0 ? enhancedData : cleanedData;
+
     // Apply filters to the data
-    let filteredData = cleanedData;
+    let filteredData = dataToUse;
     
     if (selectedNeighbourhood !== "all") {
       filteredData = filteredData.filter(row => row.neighbourhood === selectedNeighbourhood);
@@ -35,7 +38,7 @@ const SentimentTimeline = ({ selectedNeighbourhood = "all", selectedLanguage = "
     }
 
     return SentimentAnalyzer.calculateTimelineSentiment(filteredData);
-  }, [cleanedData, isDataReady, selectedNeighbourhood, selectedLanguage]);
+  }, [cleanedData, enhancedData, isDataReady, isEnhanced, selectedNeighbourhood, selectedLanguage]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {

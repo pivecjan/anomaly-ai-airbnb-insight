@@ -16,14 +16,22 @@ import { useToast } from "@/hooks/use-toast";
 import { useCSVDataStore } from "@/store/csvDataStore";
 import AnomalyInsights from "@/components/AnomalyInsights";
 import CompactCSVUpload from "@/components/CompactCSVUpload";
+import { LLMSentimentAnalyzer } from "@/utils/llmSentimentAnalysis";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
   
-  const { cleanedData, isDataReady } = useCSVDataStore();
+  const { 
+    cleanedData, 
+    isDataReady, 
+    isAnalysisStarted, 
+    isAnalyzing, 
+    startAnalysis: triggerAnalysis,
+    setAnalyzing,
+    setEnhancedData
+  } = useCSVDataStore();
 
   const agents = [
     {
@@ -79,6 +87,15 @@ const Index = () => {
       icon: Database,
       status: "ready",
       color: "bg-teal-500"
+    },
+    {
+      id: "ai-anomaly",
+      name: "AI Anomaly Agent",
+      role: "ChatGPT Analyst",
+      description: "Uses ChatGPT gpt-4o-mini for language detection, sentiment scoring, and neighborhood-specific anomaly detection",
+      icon: Brain,
+      status: "ready",
+      color: "bg-pink-500"
     }
   ];
 
@@ -92,33 +109,81 @@ const Index = () => {
       return;
     }
 
-    setIsAnalyzing(true);
+    // Trigger analysis state in store
+    triggerAnalysis();
     setAnalysisProgress(0);
     
-    const steps = [
-      { agent: "engineer", message: "Validating CSV structure and parsing dates...", progress: 15 },
-      { agent: "engineer", message: "Cleaning data and removing duplicates...", progress: 25 },
-      { agent: "engineer", message: "Standardizing text encoding and language detection...", progress: 35 },
-      { agent: "analytical", message: "Analyzing review volume trends over time...", progress: 45 },
-      { agent: "analytical", message: "Computing sentiment distribution by neighbourhood...", progress: 55 },
-      { agent: "scientist", message: "Detecting fake reviews and complaint patterns...", progress: 70 },
-      { agent: "scientist", message: "Identifying anomalous review bursts...", progress: 80 },
-      { agent: "storyteller", message: "Generating human-readable insights...", progress: 90 },
-      { agent: "creative", message: "Building interactive dashboard...", progress: 95 },
-      { agent: "lead", message: "Analysis complete! Ready to explore insights.", progress: 100 }
-    ];
+    try {
+      // Step 1-7: Initial analysis steps
+      const initialSteps = [
+        { agent: "engineer", message: "Validating CSV structure and parsing dates...", progress: 15 },
+        { agent: "engineer", message: "Cleaning data and removing duplicates...", progress: 25 },
+        { agent: "engineer", message: "Standardizing text encoding and language detection...", progress: 35 },
+        { agent: "analytical", message: "Analyzing review volume trends over time...", progress: 45 },
+        { agent: "analytical", message: "Computing sentiment distribution by neighbourhood...", progress: 55 },
+        { agent: "scientist", message: "Detecting fake reviews and complaint patterns...", progress: 70 },
+        { agent: "scientist", message: "Identifying anomalous review bursts...", progress: 80 }
+      ];
 
-    for (const step of steps) {
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      setAnalysisProgress(step.progress);
+      // Run initial steps
+      for (const step of initialSteps) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+        setAnalysisProgress(step.progress);
+        toast({
+          title: `${step.agent.charAt(0).toUpperCase() + step.agent.slice(1)} Agent`,
+          description: step.message,
+        });
+      }
+
+      // Step 8: ChatGPT Enhancement (actual processing)
+      setAnalysisProgress(85);
       toast({
-        title: `${step.agent.charAt(0).toUpperCase() + step.agent.slice(1)} Agent`,
-        description: step.message,
+        title: "AI Anomaly Agent",
+        description: "Starting ChatGPT sentiment analysis enhancement...",
       });
-    }
 
-    setIsAnalyzing(false);
-    setActiveTab("dashboard");
+      // Actually run the ChatGPT enhancement
+      const enhanced = await LLMSentimentAnalyzer.enhanceDataWithLLM(cleanedData);
+      setEnhancedData(enhanced);
+
+      setAnalysisProgress(90);
+      toast({
+        title: "AI Anomaly Agent",
+        description: "ChatGPT enhancement completed successfully!",
+      });
+
+      // Final steps
+      const finalSteps = [
+        { agent: "storyteller", message: "Generating human-readable insights...", progress: 95 },
+        { agent: "creative", message: "Building interactive dashboard...", progress: 98 },
+        { agent: "lead", message: "Analysis complete! Ready to explore insights.", progress: 100 }
+      ];
+
+      for (const step of finalSteps) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+        setAnalysisProgress(step.progress);
+        toast({
+          title: `${step.agent.charAt(0).toUpperCase() + step.agent.slice(1)} Agent`,
+          description: step.message,
+        });
+      }
+
+      setAnalyzing(false);
+      setActiveTab("dashboard");
+
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "ChatGPT enhancement failed. Analysis will continue with basic sentiment analysis.",
+        variant: "destructive"
+      });
+      
+      // Complete analysis even if ChatGPT fails
+      setAnalysisProgress(100);
+      setAnalyzing(false);
+      setActiveTab("dashboard");
+    }
   };
 
   return (
@@ -135,11 +200,11 @@ const Index = () => {
               Airbnb Review Anomaly Detection
             </h1>
             <p className="text-lg text-slate-600 max-w-3xl mx-auto">
-              Multi-agent AI system with advanced CSV preprocessing for analyzing review datasets
+              Multi-agent AI system with ChatGPT-powered anomaly detection, language recognition, and neighborhood-specific sentiment analysis
             </p>
             <Badge variant="outline" className="text-sm">
               <AlertTriangle className="w-4 h-4 mr-1" />
-              6 AI Agents Active
+              7 AI Agents Active (including ChatGPT)
             </Badge>
           </div>
 
@@ -180,9 +245,9 @@ const Index = () => {
             <TabsList className="grid w-full grid-cols-5 bg-white/80 backdrop-blur-sm">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="data">Data Preview</TabsTrigger>
-              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-              <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
-              <TabsTrigger value="insights">Insights</TabsTrigger>
+              <TabsTrigger value="dashboard" disabled={!isAnalysisStarted}>Dashboard</TabsTrigger>
+              <TabsTrigger value="anomalies" disabled={!isAnalysisStarted}>Anomalies</TabsTrigger>
+              <TabsTrigger value="insights" disabled={!isAnalysisStarted}>Insights</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -190,29 +255,39 @@ const Index = () => {
               <CardHeader>
                 <CardTitle>Enhanced System Overview</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {agents.map((agent) => (
+                    <AgentCard key={agent.id} agent={agent} isActive={isAnalyzing} />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle>System Capabilities</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h3 className="font-semibold mb-2">Data Engineering Workflow</h3>
-                    <ol className="space-y-2 text-sm text-slate-600">
-                      <li>1. Structural validation (4 columns: listing_id, date, comments, neighbourhood_cleansed)</li>
-                      <li>2. Data cleaning (remove missing/duplicate entries)</li>
-                      <li>3. DateTime standardization (YYYY-MM-DD format)</li>
-                      <li>4. Text normalization and cleaning</li>
-                      <li>5. Automatic language detection from comments</li>
-                      <li>6. Generate unique review IDs</li>
-                      <li>7. Output cleaned_reviews.csv with enhanced fields</li>
-                    </ol>
+                    <h3 className="font-semibold mb-3">Advanced Analytics</h3>
+                    <ul className="space-y-2 text-sm text-slate-600">
+                      <li>• Real-time sentiment analysis with ChatGPT integration</li>
+                      <li>• Multi-language review processing and translation</li>
+                      <li>• Neighborhood-specific anomaly baselines</li>
+                      <li>• Temporal pattern recognition</li>
+                      <li>• Statistical outlier detection</li>
+                    </ul>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">Validation Features</h3>
+                    <h3 className="font-semibold mb-3">Detection Features</h3>
                     <ul className="space-y-2 text-sm text-slate-600">
-                      <li>• Strict CSV structure validation</li>
-                      <li>• Automatic duplicate removal</li>
-                      <li>• Date format validation and parsing</li>
-                      <li>• Text encoding normalization</li>
-                      <li>• Language distribution analysis</li>
-                      <li>• Downloadable cleaned datasets</li>
+                      <li>• Fake review identification</li>
+                      <li>• Complaint pattern analysis</li>
+                      <li>• Review clustering detection</li>
+                      <li>• Language anomaly flagging</li>
+                      <li>• Sentiment manipulation alerts</li>
                     </ul>
                   </div>
                 </div>
@@ -225,18 +300,48 @@ const Index = () => {
             </TabsContent>
 
             <TabsContent value="dashboard">
-              <Dashboard />
+              {isAnalysisStarted ? (
+                <Dashboard />
+              ) : (
+                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                  <CardContent className="p-8 text-center">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+                    <h3 className="text-lg font-semibold mb-2">Analysis Not Started</h3>
+                    <p className="text-slate-600">Click "Start Analysis" to generate the dashboard</p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="anomalies">
-              <div className="space-y-6">
-                <EnhancedAnomalyTable />
-                <AnomalyInsights />
-              </div>
+              {isAnalysisStarted ? (
+                <div className="space-y-6">
+                  <EnhancedAnomalyTable />
+                  <AnomalyInsights />
+                </div>
+              ) : (
+                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                  <CardContent className="p-8 text-center">
+                    <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+                    <h3 className="text-lg font-semibold mb-2">Analysis Not Started</h3>
+                    <p className="text-slate-600">Click "Start Analysis" to detect anomalies</p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="insights">
-              <StorytellerInsights />
+              {isAnalysisStarted ? (
+                <StorytellerInsights />
+              ) : (
+                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                  <CardContent className="p-8 text-center">
+                    <FileText className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+                    <h3 className="text-lg font-semibold mb-2">Analysis Not Started</h3>
+                    <p className="text-slate-600">Click "Start Analysis" to generate insights</p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         </div>

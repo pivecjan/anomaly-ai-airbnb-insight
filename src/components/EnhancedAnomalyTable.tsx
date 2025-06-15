@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { AlertTriangle, Eye, ArrowUpDown } from "lucide-react";
 import { useCSVDataStore } from "@/store/csvDataStore";
 import { SentimentAnalyzer } from "@/utils/sentimentAnalysis";
+import { LLMSentimentAnalyzer } from "@/utils/llmSentimentAnalysis";
 
 interface EnhancedAnomaly {
   review_id: string;
@@ -23,7 +24,7 @@ interface EnhancedAnomaly {
 }
 
 const EnhancedAnomalyTable = () => {
-  const { cleanedData, isDataReady } = useCSVDataStore();
+  const { cleanedData, isDataReady, enhancedData, isEnhanced, isAnalysisStarted, setEnhancedData } = useCSVDataStore();
   const [sortField, setSortField] = useState<'anomaly_score' | 'sentiment_score'>('anomaly_score');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [sentimentFilter, setSentimentFilter] = useState('all');
@@ -96,33 +97,49 @@ const EnhancedAnomalyTable = () => {
       return [];
     }
 
-    const detectedAnomalies = SentimentAnalyzer.detectAnomalies(cleanedData);
+    // Use enhanced data if available, otherwise use original data
+    const dataToAnalyze = enhancedData.length > 0 ? enhancedData : cleanedData;
+    const detectedAnomalies = SentimentAnalyzer.detectAnomalies(dataToAnalyze);
     
     return detectedAnomalies.map(anomaly => {
-      const originalRow = cleanedData.find(row => row.review_id === anomaly.review_id);
+      const originalRow = dataToAnalyze.find(row => row.review_id === anomaly.review_id);
       if (!originalRow) return null;
 
-      const sentiment = SentimentAnalyzer.analyzeSentiment(originalRow.raw_text);
+      // Use sentiment and anomaly scores from the new detection logic if available
+      const sentimentScore = anomaly.sentiment_score !== undefined ? anomaly.sentiment_score : 
+        ('llm_sentiment_score' in originalRow ? originalRow.llm_sentiment_score : 
+         SentimentAnalyzer.analyzeSentiment(originalRow.raw_text).score);
       
-      // Calculate enhanced anomaly score: (sentiment_deviation * 0.7) + (language_risk * 0.3)
-      const avgSentiment = 0.6; // Average baseline sentiment
-      const sentimentDeviation = Math.abs(sentiment.score - avgSentiment);
-      const languageRisk = originalRow.language !== 'en' ? 0.8 : 0.2;
-      const anomaly_score = Math.min(1.0, (sentimentDeviation * 0.7) + (languageRisk * 0.3));
+      const anomalyScore = anomaly.anomaly_score !== undefined ? anomaly.anomaly_score :
+        // Fallback calculation if not provided
+        Math.min(1.0, Math.abs(sentimentScore) * 0.8 + (originalRow.language !== 'en' ? 0.2 : 0));
+
+      // Map new anomaly types to display-friendly names
+      const getAnomalyTypeDisplay = (type: string) => {
+        switch (type) {
+          case 'sentiment_negative': return 'Negative Outlier';
+          case 'sentiment_positive': return 'Positive Outlier';
+          case 'sentiment_neutral': return 'Neutral/Generic';
+          case 'suspicious': return 'Suspicious';
+          case 'language': return 'Language';
+          case 'complaint': return 'Complaint';
+          default: return type;
+        }
+      };
 
       return {
         review_id: anomaly.review_id,
-        sentiment_score: Number(((sentiment.score + 1) / 2).toFixed(3)), // Normalize to 0-1
-        anomaly_score: Number(anomaly_score.toFixed(3)),
+        sentiment_score: Number(((sentimentScore + 1) / 2).toFixed(3)), // Normalize to 0-1 for display
+        anomaly_score: Number(anomalyScore.toFixed(3)),
         raw_text: originalRow.raw_text,
         neighbourhood: anomaly.neighbourhood,
         created_at: anomaly.created_at,
-        anomaly_type: anomaly.type,
+        anomaly_type: getAnomalyTypeDisplay(anomaly.type),
         reason: anomaly.reason,
-        detailedReason: generateDetailedReason(anomaly, originalRow, sentiment)
+        detailedReason: generateDetailedReason(anomaly, originalRow, { score: sentimentScore, magnitude: Math.abs(sentimentScore), label: sentimentScore > 0.1 ? 'positive' : sentimentScore < -0.1 ? 'negative' : 'neutral' })
       } as EnhancedAnomaly;
     }).filter(Boolean) as EnhancedAnomaly[];
-  }, [cleanedData, isDataReady]);
+  }, [cleanedData, isDataReady, enhancedData]);
 
   const filteredAndSortedAnomalies = useMemo(() => {
     let filtered = anomalies;
@@ -223,6 +240,13 @@ const EnhancedAnomalyTable = () => {
           Anomaly Records ({filteredAndSortedAnomalies.length})
         </CardTitle>
         
+        {/* Status */}
+        {isEnhanced && (
+          <div className="flex items-center gap-2 mt-4 text-sm text-green-600">
+            ✅ Enhanced with ChatGPT sentiment analysis
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex gap-4 mt-4">
           <Select onValueChange={(value) => { setSentimentFilter(value); resetPage(); }} defaultValue="all">

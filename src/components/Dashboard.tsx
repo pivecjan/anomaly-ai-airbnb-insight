@@ -6,20 +6,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, MapPin, Calendar, AlertTriangle, FileText } from "lucide-react";
 import { useCSVDataStore } from "@/store/csvDataStore";
+import { SentimentAnalyzer } from "@/utils/sentimentAnalysis";
 import SentimentMetric from "./SentimentMetric";
 import SentimentTimeline from "./SentimentTimeline";
 
 const Dashboard = () => {
-  const { cleanedData, isDataReady } = useCSVDataStore();
+  const { cleanedData, enhancedData, isDataReady, isEnhanced, isAnalysisStarted } = useCSVDataStore();
   const [selectedNeighbourhood, setSelectedNeighbourhood] = useState("all");
   const [selectedLanguage, setSelectedLanguage] = useState("all");
 
   const analytics = useMemo(() => {
-    if (!isDataReady || cleanedData.length === 0) {
+    if (!isDataReady || cleanedData.length === 0 || !isAnalysisStarted) {
       return null;
     }
 
-    let filteredData = cleanedData;
+    // Use enhanced data if available, otherwise use cleaned data
+    const dataToUse = isEnhanced && enhancedData.length > 0 ? enhancedData : cleanedData;
+    let filteredData = dataToUse;
     
     if (selectedNeighbourhood !== "all") {
       filteredData = filteredData.filter(row => row.neighbourhood === selectedNeighbourhood);
@@ -52,7 +55,7 @@ const Dashboard = () => {
       }));
 
     const languageGroups = filteredData.reduce((acc, row) => {
-      acc[row.language] = (acc[row.language] || 0) + 1;
+      acc[row.language] = ((acc[row.language] as number) || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -62,19 +65,21 @@ const Dashboard = () => {
       percentage: ((count / filteredData.length) * 100).toFixed(1)
     }));
 
-    const anomalyCount = Math.floor(filteredData.length * 0.05);
+    // Calculate actual anomalies using the same logic as legacy anomaly detection
+    const detectedAnomalies = SentimentAnalyzer.detectAnomalies(filteredData);
+    const anomalyCount = detectedAnomalies.length;
 
     // Calculate neighbourhood frequency for better dropdown management
-    const neighbourhoodCounts = cleanedData.reduce((acc, row) => {
+    const neighbourhoodCounts = dataToUse.reduce((acc, row) => {
       const neighbourhood = row.neighbourhood;
       if (neighbourhood && neighbourhood.trim() !== '') {
-        acc[neighbourhood] = (acc[neighbourhood] || 0) + 1;
+        acc[neighbourhood] = ((acc[neighbourhood] as number) || 0) + 1;
       }
       return acc;
     }, {} as Record<string, number>);
 
     const topNeighbourhoods = Object.entries(neighbourhoodCounts)
-      .sort(([,a], [,b]) => b - a) // Sort by frequency descending
+      .sort(([,a], [,b]) => (b as number) - (a as number)) // Sort by frequency descending
       .slice(0, 15) // Top 15 most frequent
       .map(([neighbourhood]) => neighbourhood)
       .sort(); // Then sort alphabetically for display
@@ -86,9 +91,9 @@ const Dashboard = () => {
       timeSeriesData,
       languageData,
       neighbourhoods: topNeighbourhoods,
-      languages: [...new Set(cleanedData.map(row => row.language).filter(l => l && l.trim() !== ''))]
+      languages: [...new Set(dataToUse.map(row => row.language).filter(l => l && l.trim() !== ''))]
     };
-  }, [cleanedData, isDataReady, selectedNeighbourhood, selectedLanguage]);
+  }, [cleanedData, enhancedData, isDataReady, isEnhanced, selectedNeighbourhood, selectedLanguage, isAnalysisStarted]);
 
   const colours = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 

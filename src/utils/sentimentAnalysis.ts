@@ -14,11 +14,13 @@ export interface TimelineSentiment {
 
 export interface AnomalyMetadata {
   review_id: string;
-  type: 'suspicious' | 'complaint' | 'language';
+  type: 'suspicious' | 'complaint' | 'language' | 'sentiment_negative' | 'sentiment_positive' | 'sentiment_neutral';
   reason: string;
   example: string;
   neighbourhood: string;
   created_at: string;
+  sentiment_score?: number;
+  anomaly_score?: number;
 }
 
 export class SentimentAnalyzer {
@@ -176,48 +178,116 @@ export class SentimentAnalyzer {
     });
   }
 
-  static detectAnomalies(data: Array<{review_id: string, raw_text: string, neighbourhood: string, created_at: string, language: string}>): AnomalyMetadata[] {
+  static detectAnomalies(data: Array<{review_id: string, raw_text: string, neighbourhood: string, created_at: string, language: string, sentiment_score?: number, anomaly_score?: number}>): AnomalyMetadata[] {
     // Filter out invalid dates first
     const validData = data.filter(row => this.validateDate(row.created_at));
     const anomalies: AnomalyMetadata[] = [];
 
-    validData.forEach(row => {
-      const text = row.raw_text.toLowerCase();
+    if (validData.length === 0) return anomalies;
+
+    // Calculate sentiment for each review if not already provided
+    const dataWithSentiment = validData.map(row => ({
+      ...row,
+      sentiment: row.sentiment_score !== undefined ? 
+        { score: row.sentiment_score, magnitude: Math.abs(row.sentiment_score), label: row.sentiment_score > 0.1 ? 'positive' : row.sentiment_score < -0.1 ? 'negative' : 'neutral' as const } :
+        this.analyzeSentiment(row.raw_text)
+    }));
+
+    // Group by neighbourhood to calculate baselines
+    const neighbourhoodGroups = dataWithSentiment.reduce((acc, row) => {
+      if (!acc[row.neighbourhood]) {
+        acc[row.neighbourhood] = [];
+      }
+      acc[row.neighbourhood].push(row);
+      return acc;
+    }, {} as Record<string, typeof dataWithSentiment>);
+
+    // Calculate neighbourhood sentiment baselines
+    const neighbourhoodBaselines = Object.entries(neighbourhoodGroups).reduce((acc, [neighbourhood, reviews]) => {
+      const sentiments = reviews.map(r => r.sentiment.score);
+      const mean = sentiments.reduce((sum, s) => sum + s, 0) / sentiments.length;
+      const variance = sentiments.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / sentiments.length;
+      const stdDev = Math.sqrt(variance);
       
-      // Detect complaints
-      const complaintKeywords = ['dirty', 'clean', 'smell', 'noise', 'broken', 'uncomfortable', 'rude', 'terrible'];
-      if (complaintKeywords.some(keyword => text.includes(keyword))) {
+      acc[neighbourhood] = {
+        mean,
+        stdDev: Math.max(stdDev, 0.2), // Minimum threshold to avoid over-sensitivity
+        count: reviews.length
+      };
+      return acc;
+    }, {} as Record<string, { mean: number, stdDev: number, count: number }>);
+
+    // Calculate overall baseline for neighbourhoods with few reviews
+    const allSentiments = dataWithSentiment.map(r => r.sentiment.score);
+    const overallMean = allSentiments.reduce((sum, s) => sum + s, 0) / allSentiments.length;
+    const overallVariance = allSentiments.reduce((sum, s) => sum + Math.pow(s - overallMean, 2), 0) / allSentiments.length;
+    const overallStdDev = Math.sqrt(overallVariance);
+
+    // Detect sentiment-based anomalies
+    dataWithSentiment.forEach(row => {
+      const baseline = neighbourhoodGroups[row.neighbourhood].length >= 5 ? 
+        neighbourhoodBaselines[row.neighbourhood] : 
+        { mean: overallMean, stdDev: overallStdDev, count: validData.length };
+
+      const sentimentDeviation = Math.abs(row.sentiment.score - baseline.mean);
+      const zScore = sentimentDeviation / baseline.stdDev;
+      
+      // Use anomaly_score from ChatGPT if available, otherwise use z-score
+      const anomalyScore = row.anomaly_score !== undefined ? row.anomaly_score : zScore;
+      
+      // Flag as anomaly if significantly deviates from neighbourhood baseline
+      if (anomalyScore > 2.0) { // 2 standard deviations
+        let anomalyType: 'sentiment_negative' | 'sentiment_positive' | 'sentiment_neutral';
+        let reason: string;
+        
+        if (row.sentiment.score < baseline.mean - (1.5 * baseline.stdDev)) {
+          anomalyType = 'sentiment_negative';
+          reason = `Unusually negative sentiment for ${row.neighbourhood}. Score: ${row.sentiment.score.toFixed(2)}, Neighbourhood avg: ${baseline.mean.toFixed(2)}`;
+        } else if (row.sentiment.score > baseline.mean + (1.5 * baseline.stdDev)) {
+          anomalyType = 'sentiment_positive';
+          reason = `Unusually positive sentiment for ${row.neighbourhood}. Score: ${row.sentiment.score.toFixed(2)}, Neighbourhood avg: ${baseline.mean.toFixed(2)}`;
+        } else {
+          anomalyType = 'sentiment_neutral';
+          reason = `Neutral sentiment with low emotional engagement, potentially indicating generic or template content. Anomaly score: ${anomalyScore.toFixed(2)}`;
+        }
+
         anomalies.push({
           review_id: row.review_id,
-          type: 'complaint',
-          reason: 'Contains complaint keywords',
-          example: row.raw_text.substring(0, 50) + '...',
+          type: anomalyType,
+          reason,
+          example: row.raw_text.substring(0, 100) + (row.raw_text.length > 100 ? '...' : ''),
           neighbourhood: row.neighbourhood,
-          created_at: row.created_at
+          created_at: row.created_at,
+          sentiment_score: row.sentiment.score,
+          anomaly_score: anomalyScore
         });
       }
-
-      // Detect suspicious patterns
-      if (text.length < 20 || /(.)\1{3,}/.test(text)) {
+      
+      // Still flag extremely short reviews as they're likely not genuine
+      else if (row.raw_text.length < 15) {
         anomalies.push({
           review_id: row.review_id,
           type: 'suspicious',
-          reason: 'Repetitive or too short',
-          example: row.raw_text.substring(0, 50) + '...',
+          reason: 'Extremely short review (likely spam or low-effort)',
+          example: row.raw_text,
           neighbourhood: row.neighbourhood,
-          created_at: row.created_at
+          created_at: row.created_at,
+          sentiment_score: row.sentiment.score,
+          anomaly_score: anomalyScore
         });
       }
-
-      // Detect language issues
-      if (row.language !== 'en') {
+      
+      // Flag non-English reviews only if they're also sentiment anomalies
+      else if (row.language !== 'en' && anomalyScore > 1.5) {
         anomalies.push({
           review_id: row.review_id,
           type: 'language',
-          reason: `Non-English content (${row.language})`,
-          example: row.raw_text.substring(0, 50) + '...',
+          reason: `Non-English content (${row.language}) with unusual sentiment pattern`,
+          example: row.raw_text.substring(0, 100) + (row.raw_text.length > 100 ? '...' : ''),
           neighbourhood: row.neighbourhood,
-          created_at: row.created_at
+          created_at: row.created_at,
+          sentiment_score: row.sentiment.score,
+          anomaly_score: anomalyScore
         });
       }
     });

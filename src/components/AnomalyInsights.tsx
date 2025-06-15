@@ -1,4 +1,3 @@
-
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,14 +7,16 @@ import { useCSVDataStore } from "@/store/csvDataStore";
 import { SentimentAnalyzer, AnomalyMetadata } from "@/utils/sentimentAnalysis";
 
 const AnomalyInsights = () => {
-  const { cleanedData, isDataReady } = useCSVDataStore();
+  const { cleanedData, enhancedData, isDataReady, isEnhanced, isAnalysisStarted } = useCSVDataStore();
 
   const anomalyAnalysis = useMemo(() => {
-    if (!isDataReady || cleanedData.length === 0) {
+    if (!isDataReady || cleanedData.length === 0 || !isAnalysisStarted) {
       return null;
     }
 
-    const anomalies = SentimentAnalyzer.detectAnomalies(cleanedData);
+    // Use enhanced data if available, otherwise use cleaned data
+    const dataToUse = isEnhanced && enhancedData.length > 0 ? enhancedData : cleanedData;
+    const anomalies = SentimentAnalyzer.detectAnomalies(dataToUse);
     
     const typeGroups = anomalies.reduce((acc, anomaly) => {
       acc[anomaly.type] = (acc[anomaly.type] || []).concat(anomaly);
@@ -35,9 +36,9 @@ const AnomalyInsights = () => {
       totalAnomalies: anomalies.length,
       typeGroups,
       topNeighbourhoods,
-      percentage: ((anomalies.length / cleanedData.length) * 100).toFixed(1)
+      percentage: ((anomalies.length / dataToUse.length) * 100).toFixed(1)
     };
-  }, [cleanedData, isDataReady]);
+  }, [cleanedData, enhancedData, isDataReady, isEnhanced, isAnalysisStarted]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {

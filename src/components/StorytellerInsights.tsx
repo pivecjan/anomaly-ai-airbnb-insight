@@ -1,4 +1,3 @@
-
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,21 +5,24 @@ import { TrendingUp, MapPin, Calendar, MessageSquare, FileText } from "lucide-re
 import { useCSVDataStore } from "@/store/csvDataStore";
 
 const StorytellerInsights = () => {
-  const { cleanedData, isDataReady } = useCSVDataStore();
+  const { cleanedData, enhancedData, isDataReady, isEnhanced, isAnalysisStarted } = useCSVDataStore();
 
   const insights = useMemo(() => {
-    if (!isDataReady || cleanedData.length === 0) {
+    if (!isDataReady || cleanedData.length === 0 || !isAnalysisStarted) {
       return null;
     }
 
+    // Use enhanced data if available, otherwise use cleaned data
+    const dataToUse = isEnhanced && enhancedData.length > 0 ? enhancedData : cleanedData;
+
     // Generate insights from real CSV data
-    const totalReviews = cleanedData.length;
-    const uniqueListings = new Set(cleanedData.map(row => row.listing_id)).size;
-    const neighbourhoods = [...new Set(cleanedData.map(row => row.neighbourhood))];
-    const languages = [...new Set(cleanedData.map(row => row.language))];
+    const totalReviews = dataToUse.length;
+    const uniqueListings = new Set(dataToUse.map(row => row.listing_id)).size;
+    const neighbourhoods = [...new Set(dataToUse.map(row => row.neighbourhood))];
+    const languages = [...new Set(dataToUse.map(row => row.language))];
 
     // Time analysis
-    const dateGroups = cleanedData.reduce((acc, row) => {
+    const dateGroups = dataToUse.reduce((acc, row) => {
       const date = row.created_at.split(' ')[0];
       acc[date] = (acc[date] || 0) + 1;
       return acc;
@@ -30,11 +32,11 @@ const StorytellerInsights = () => {
     const dateRange = dates.length > 0 ? `${dates[0]} to ${dates[dates.length - 1]}` : 'N/A';
 
     // Language distribution
-    const englishReviews = cleanedData.filter(row => row.language === 'en').length;
+    const englishReviews = dataToUse.filter(row => row.language === 'en').length;
     const englishPercentage = ((englishReviews / totalReviews) * 100).toFixed(1);
 
     // Top neighbourhoods by review count
-    const neighbourhoodCounts = cleanedData.reduce((acc, row) => {
+    const neighbourhoodCounts = dataToUse.reduce((acc, row) => {
       acc[row.neighbourhood] = (acc[row.neighbourhood] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -53,7 +55,7 @@ const StorytellerInsights = () => {
       englishPercentage,
       topNeighbourhoods
     };
-  }, [cleanedData, isDataReady]);
+  }, [cleanedData, enhancedData, isDataReady, isEnhanced, isAnalysisStarted]);
 
   if (!isDataReady) {
     return (

@@ -89,11 +89,11 @@ export class LLMSentimentAnalyzer {
     
     console.log(`📊 Cache analysis: ${totalBatches} total batches, ~${estimatedApiCalls} API calls needed`);
 
-    // 🚀 OPTIMIZED PARALLEL PROCESSING: Balance speed and rate limits
-    const maxConcurrent = 3; // 3 concurrent requests with larger batches
+    // 🚀 SEQUENTIAL PROCESSING: One request at a time to avoid rate limits
+    const maxConcurrent = 1; // 1 concurrent request to avoid rate limits
     let processedBatches = 0;
     
-    console.log(`🔥 Processing ${totalBatches} batches with 3 concurrent requests`);
+    console.log(`🔥 Processing ${totalBatches} batches sequentially (1 at a time)`);
     
     // Process batches in controlled groups
     for (let i = 0; i < texts.length; i += batchSize * maxConcurrent) {
@@ -357,7 +357,7 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
       }
       
       // Debug: Log the raw API response for first few batches
-      if (texts.length <= 800) { // Only for batches to avoid spam
+      if (texts.length <= 400) { // Only for batches to avoid spam
         console.log('🔍 Raw OpenAI response:', analysis);
         console.log('🔍 Batch size:', texts.length);
       }
@@ -443,7 +443,7 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
   }>> {
     const startTime = Date.now();
     console.log(`🚀 Starting UNLIMITED PARALLEL LLM enhancement for ${data.length} reviews`);
-    console.log(`⚡ OPTIMIZED: 800 reviews/batch, 3 concurrent requests, 1s delays`);
+    console.log(`⚡ SEQUENTIAL: 400 reviews/batch, 1 request at a time, 1s delays`);
     
     // Clear cache to ensure fresh language detection
     console.log('🗑️ Clearing cache for fresh language detection...');
@@ -506,7 +506,7 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
   // EXTREME batch size optimization for maximum parallelization
   private static getOptimalBatchSize(): number {
     // Even smaller batches for maximum parallelization
-    const baseSize = 800; // MASSIVE batches to drastically reduce API calls
+    const baseSize = 400; // LARGE batches to reduce API calls
     
     // If response times are very fast (< 1 second), we can increase batch size slightly
     if (this.performanceMetrics.avgResponseTime < 1000 && this.performanceMetrics.successRate > 0.95) {
@@ -518,7 +518,7 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
       return Math.max(10, baseSize - 10); // Decrease to 15-10 for slow/unreliable responses
     }
     
-    return baseSize; // Default 800 (4x larger to minimize API calls)
+    return baseSize; // Default 400 (2x larger to minimize API calls)
   }
 
   // Update performance metrics

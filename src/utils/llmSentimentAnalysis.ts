@@ -148,61 +148,50 @@ export class LLMSentimentAnalyzer {
     const startTime = Date.now();
     
     try {
-      // Check cache first for intelligent processing
-      const { cached, uncached, indices } = this.getCachedResults(batch);
+      // Skip cache to ensure consistent batch sizes for now
+      // const { cached, uncached, indices } = this.getCachedResults(batch);
       
-      // Fill in cached results immediately
-      cached.forEach((result, index) => {
-        if (result) {
-          results[batchStartIndex + index] = result;
+      // Process the FULL batch to maintain consistent batch sizes
+      console.log(`🔄 Batch ${batchNumber}/${totalBatches}: Processing ${batch.length} reviews`);
+      
+      // Add retry logic for better reliability
+      let batchResults: LLMSentimentResult[] = [];
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          const apiStartTime = Date.now();
+          // Process the ENTIRE batch, not just uncached items
+          batchResults = await this.analyzeBatchWithSingleCall(batch);
+          const apiTime = Date.now() - apiStartTime;
+          
+          // Track performance metrics for adaptive optimization
+          this.updatePerformanceMetrics(apiTime, true);
+          break; // Success, exit retry loop
+        } catch (error) {
+          retryCount++;
+          this.updatePerformanceMetrics(5000, false); // Record failure with penalty time
+          
+          if (retryCount <= maxRetries) {
+            console.log(`⚠️ Batch ${batchNumber} failed, retrying (${retryCount}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
+          } else {
+            throw error; // Re-throw after max retries
+          }
         }
+      }
+      
+      // Fill in results at correct positions
+      batchResults.forEach((result, index) => {
+        results[batchStartIndex + index] = result;
       });
       
-      // Only process uncached reviews to minimize API calls
-      if (uncached.length > 0) {
-        console.log(`🔄 Batch ${batchNumber}/${totalBatches}: Processing ${uncached.length}/${batch.length} new reviews (${batch.length - uncached.length} from cache)`);
-        
-        // Add retry logic for better reliability
-        let batchResults: LLMSentimentResult[] = [];
-        let retryCount = 0;
-        const maxRetries = 2;
-        
-                 while (retryCount <= maxRetries) {
-           try {
-             const apiStartTime = Date.now();
-             batchResults = await this.analyzeBatchWithSingleCall(uncached);
-             const apiTime = Date.now() - apiStartTime;
-             
-             // Track performance metrics for adaptive optimization
-             this.updatePerformanceMetrics(apiTime, true);
-             break; // Success, exit retry loop
-           } catch (error) {
-             retryCount++;
-             this.updatePerformanceMetrics(5000, false); // Record failure with penalty time
-             
-             if (retryCount <= maxRetries) {
-               console.log(`⚠️ Batch ${batchNumber} failed, retrying (${retryCount}/${maxRetries})...`);
-               await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
-             } else {
-               throw error; // Re-throw after max retries
-             }
-           }
-         }
-        
-        // Fill in new results at correct positions
-        batchResults.forEach((result, index) => {
-          const originalIndex = batchStartIndex + indices[index];
-          results[originalIndex] = result;
-        });
-        
-        // Cache the new results for future use
-        this.cacheResults(uncached, batchResults);
-        
-        const processingTime = Date.now() - startTime;
-        console.log(`⚡ Batch ${batchNumber} completed in ${processingTime}ms (${Math.round(uncached.length / (processingTime / 1000))} reviews/sec)`);
-      } else {
-        console.log(`💾 Batch ${batchNumber}/${totalBatches}: All ${batch.length} reviews found in cache (instant)`);
-      }
+      // Cache the new results for future use
+      this.cacheResults(batch, batchResults);
+      
+      const processingTime = Date.now() - startTime;
+      console.log(`⚡ Batch ${batchNumber} completed in ${processingTime}ms (${Math.round(batch.length / (processingTime / 1000))} reviews/sec)`);
     } catch (error) {
       console.error(`❌ Error processing batch ${batchNumber}:`, error);
       
@@ -503,22 +492,10 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
     this.performanceMetrics = { avgResponseTime: 0, successRate: 1 }; // Reset performance metrics
   }
 
-  // EXTREME batch size optimization for maximum parallelization
+  // Fixed batch size for consistent API calls
   private static getOptimalBatchSize(): number {
-    // Even smaller batches for maximum parallelization
-    const baseSize = 400; // LARGE batches to reduce API calls
-    
-    // If response times are very fast (< 1 second), we can increase batch size slightly
-    if (this.performanceMetrics.avgResponseTime < 1000 && this.performanceMetrics.successRate > 0.95) {
-      return Math.min(40, baseSize + 10); // Increase to 35-40 for very fast responses
-    }
-    
-    // If response times are slow (> 2 seconds) or success rate is low, decrease batch size even more
-    if (this.performanceMetrics.avgResponseTime > 2000 || this.performanceMetrics.successRate < 0.8) {
-      return Math.max(10, baseSize - 10); // Decrease to 15-10 for slow/unreliable responses
-    }
-    
-    return baseSize; // Default 400 (2x larger to minimize API calls)
+    // Always return 400 to ensure consistent batching
+    return 400; // Fixed 400 reviews per batch
   }
 
   // Update performance metrics

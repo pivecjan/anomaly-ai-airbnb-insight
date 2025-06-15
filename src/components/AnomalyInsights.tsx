@@ -7,15 +7,18 @@ import { useCSVDataStore } from "@/store/csvDataStore";
 import { SentimentAnalyzer, AnomalyMetadata } from "@/utils/sentimentAnalysis";
 
 const AnomalyInsights = () => {
-  const { cleanedData, isDataReady } = useCSVDataStore();
+  const { cleanedData, enhancedData, isDataReady, isEnhanced, isAnalysisStarted } = useCSVDataStore();
 
   const anomalyAnalysis = useMemo(() => {
-    if (!isDataReady || cleanedData.length === 0) {
+    if (!isDataReady || cleanedData.length === 0 || !isAnalysisStarted) {
       return null;
     }
 
+    // Use enhanced data if available, otherwise use cleaned data
+    const dataToUse = isEnhanced && enhancedData.length > 0 ? enhancedData : cleanedData;
+
     // Calculate anomaly scores for all reviews using the same logic as EnhancedAnomalyTable
-    const reviewsWithScores = cleanedData.map(row => {
+    const reviewsWithScores = dataToUse.map(row => {
       const sentiment = SentimentAnalyzer.analyzeSentiment(row.raw_text);
       
       // Calculate enhanced anomaly score: (sentiment_deviation * 0.7) + (language_risk * 0.3)
@@ -87,9 +90,9 @@ const AnomalyInsights = () => {
       totalAnomalies: classifiedAnomalies.length,
       typeGroups,
       topNeighbourhoods,
-      percentage: ((classifiedAnomalies.length / cleanedData.length) * 100).toFixed(1)
+      percentage: ((classifiedAnomalies.length / dataToUse.length) * 100).toFixed(1)
     };
-  }, [cleanedData, isDataReady]);
+  }, [cleanedData, enhancedData, isDataReady, isEnhanced, isAnalysisStarted]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {

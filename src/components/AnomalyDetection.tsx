@@ -6,7 +6,7 @@ import { AlertTriangle, TrendingUp, MapPin, Clock, FileText } from "lucide-react
 import { useCSVDataStore } from "@/store/csvDataStore";
 
 const AnomalyDetection = () => {
-  const { cleanedData, isDataReady } = useCSVDataStore();
+  const { cleanedData, enhancedData, isDataReady, isEnhanced } = useCSVDataStore();
 
   // Generate anomalies from real CSV data
   const anomalies = useMemo(() => {
@@ -14,22 +14,25 @@ const AnomalyDetection = () => {
       return [];
     }
 
+    // Use enhanced data if available, otherwise use cleaned data
+    const dataToUse = isEnhanced && enhancedData.length > 0 ? enhancedData : cleanedData;
+
     // Analyze patterns in real data
-    const listingGroups = cleanedData.reduce((acc, row) => {
+    const listingGroups = dataToUse.reduce((acc, row) => {
       if (!acc[row.listing_id]) {
         acc[row.listing_id] = [];
       }
       acc[row.listing_id].push(row);
       return acc;
-    }, {} as Record<string, typeof cleanedData>);
+    }, {} as Record<string, typeof dataToUse>);
 
-    const neighbourhoodGroups = cleanedData.reduce((acc, row) => {
+    const neighbourhoodGroups = dataToUse.reduce((acc, row) => {
       if (!acc[row.neighbourhood]) {
         acc[row.neighbourhood] = [];
       }
       acc[row.neighbourhood].push(row);
       return acc;
-    }, {} as Record<string, typeof cleanedData>);
+    }, {} as Record<string, typeof dataToUse>);
 
     const detectedAnomalies = [];
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { AlertTriangle, Eye, ArrowUpDown } from "lucide-react";
 import { useCSVDataStore } from "@/store/csvDataStore";
 import { SentimentAnalyzer } from "@/utils/sentimentAnalysis";
+import { LLMSentimentAnalyzer } from "@/utils/llmSentimentAnalysis";
 
 interface EnhancedAnomaly {
   review_id: string;
@@ -23,7 +24,7 @@ interface EnhancedAnomaly {
 }
 
 const EnhancedAnomalyTable = () => {
-  const { cleanedData, isDataReady } = useCSVDataStore();
+  const { cleanedData, isDataReady, enhancedData, isEnhanced, isAnalysisStarted, setEnhancedData } = useCSVDataStore();
   const [sortField, setSortField] = useState<'anomaly_score' | 'sentiment_score'>('anomaly_score');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [sentimentFilter, setSentimentFilter] = useState('all');
@@ -96,8 +97,11 @@ const EnhancedAnomalyTable = () => {
       return [];
     }
 
-    // Calculate anomaly scores for all reviews and filter by threshold > 0.8
-    const reviewsWithScores = cleanedData.map(row => {
+    // Use enhanced data if available, otherwise use cleaned data
+    const dataToAnalyze = enhancedData.length > 0 ? enhancedData : cleanedData;
+    
+    // Calculate anomaly scores for all reviews using the same logic as AnomalyInsights
+    const reviewsWithScores = dataToAnalyze.map(row => {
       const sentiment = SentimentAnalyzer.analyzeSentiment(row.raw_text);
       
       // Calculate enhanced anomaly score: (sentiment_deviation * 0.7) + (language_risk * 0.3)
@@ -152,7 +156,7 @@ const EnhancedAnomalyTable = () => {
         detailedReason: generateDetailedReason({ type, reason }, row, row.sentiment)
       } as EnhancedAnomaly;
     });
-  }, [cleanedData, isDataReady]);
+  }, [cleanedData, enhancedData, isDataReady]);
 
   const filteredAndSortedAnomalies = useMemo(() => {
     let filtered = anomalies;
@@ -242,6 +246,13 @@ const EnhancedAnomalyTable = () => {
           Anomaly Records ({filteredAndSortedAnomalies.length})
         </CardTitle>
         
+        {/* Status */}
+        {isEnhanced && (
+          <div className="flex items-center gap-2 mt-4 text-sm text-green-600">
+            ✅ Enhanced with ChatGPT sentiment analysis
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex gap-4 mt-4">
           <Select onValueChange={(value) => { setSentimentFilter(value); resetPage(); }} defaultValue="all">

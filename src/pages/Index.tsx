@@ -253,19 +253,6 @@ const Index = () => {
             <TabsContent value="overview" className="space-y-6">
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader>
-                <CardTitle>Enhanced System Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {agents.map((agent) => (
-                    <AgentCard key={agent.id} agent={agent} isActive={isAnalyzing} />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-              <CardHeader>
                 <CardTitle>System Capabilities</CardTitle>
               </CardHeader>
               <CardContent>

@@ -237,10 +237,11 @@ export class LLMSentimentAnalyzer {
         `${index}:"${text.replace(/[^\w\s]/g, '').substring(0, 80)}"` // Reduced to 80 chars + remove special chars
       ).join(',');
       
-      // MINIMAL prompt for maximum speed
-      const prompt = `Sentiment analysis ${texts.length} reviews:
+      // IMPROVED prompt for accurate language detection
+      const prompt = `Analyze sentiment AND detect language for ${texts.length} reviews:
 {${reviewsUltraCompact}}
-Return: {"0":{"s":-0.5,"m":0.8,"l":"en","label":"negative"},...}`;
+Return JSON: {"0":{"s":-0.5,"m":0.8,"l":"de","label":"negative"},"1":{"s":0.3,"m":0.6,"l":"en","label":"positive"},...}
+s=sentiment(-1,1), m=magnitude(0,1), l=language_code(en,de,fr,es,it,etc), label=negative/neutral/positive`;
 
       // Add aggressive timeout for faster failure detection
       const timeoutPromise = new Promise((_, reject) => 
@@ -252,7 +253,7 @@ Return: {"0":{"s":-0.5,"m":0.8,"l":"en","label":"negative"},...}`;
         messages: [
           {
             role: "system",
-            content: "Fast sentiment analyzer. JSON only."
+            content: "Fast sentiment analyzer with language detection. Return JSON only. Detect actual language of each text."
           },
           {
             role: "user",
@@ -293,13 +294,20 @@ Return: {"0":{"s":-0.5,"m":0.8,"l":"en","label":"negative"},...}`;
         const reviewAnalysis = analysis[i.toString()];
         
         if (reviewAnalysis && typeof reviewAnalysis.s === 'number') {
+          const detectedLang = typeof reviewAnalysis.l === 'string' ? reviewAnalysis.l : 'en';
+          
+          // Debug logging for language detection
+          if (i < 3) { // Only log first 3 for debugging
+            console.log(`🌍 Review ${i}: "${texts[i].substring(0, 50)}..." -> Language: "${detectedLang}"`);
+          }
+          
           results.push({
             score: Math.max(-1, Math.min(1, reviewAnalysis.s)),
             magnitude: typeof reviewAnalysis.m === 'number' ? Math.max(0, Math.min(1, reviewAnalysis.m)) : Math.abs(reviewAnalysis.s),
             label: ['negative', 'neutral', 'positive'].includes(reviewAnalysis.label) ? reviewAnalysis.label : 
                    (reviewAnalysis.s > 0.1 ? 'positive' : reviewAnalysis.s < -0.1 ? 'negative' : 'neutral'),
             confidence: 0.8, // Fixed confidence for speed
-            detectedLanguage: typeof reviewAnalysis.l === 'string' ? reviewAnalysis.l : 'en',
+            detectedLanguage: detectedLang,
             languageConfidence: 0.9 // Fixed language confidence for speed
           });
         } else {

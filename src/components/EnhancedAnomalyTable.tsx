@@ -230,22 +230,8 @@ const EnhancedAnomalyTable = () => {
 
   const formatLanguage = (anomaly: EnhancedAnomaly) => {
     const lang = anomaly.llm_language || anomaly.language || 'en';
-    // Convert common language codes to readable names
-    const languageNames: Record<string, string> = {
-      'en': 'English',
-      'es': 'Spanish',
-      'fr': 'French',
-      'de': 'German',
-      'it': 'Italian',
-      'pt': 'Portuguese',
-      'nl': 'Dutch',
-      'ru': 'Russian',
-      'zh': 'Chinese',
-      'ja': 'Japanese',
-      'ko': 'Korean',
-      'ar': 'Arabic'
-    };
-    return languageNames[lang.toLowerCase()] || lang.toUpperCase();
+    // Return raw language code as requested
+    return lang.toLowerCase();
   };
 
   if (!isDataReady || anomalies.length === 0) {

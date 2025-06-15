@@ -119,8 +119,8 @@ const EnhancedAnomalyTable = () => {
       };
     });
 
-    // Filter only reviews with anomaly score > 0.8
-    const trueAnomalies = reviewsWithScores.filter(row => row.anomaly_score > 0.8);
+    // Filter only reviews with anomaly score > 0.7
+    const trueAnomalies = reviewsWithScores.filter(row => row.anomaly_score > 0.7);
     
     return trueAnomalies.map(row => {
       const text = row.raw_text.toLowerCase();

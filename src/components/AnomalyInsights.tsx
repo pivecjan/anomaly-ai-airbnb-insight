@@ -34,8 +34,8 @@ const AnomalyInsights = () => {
       };
     });
 
-    // Filter only reviews with anomaly score > 0.8
-    const trueAnomalies = reviewsWithScores.filter(row => row.anomaly_score > 0.8);
+    // Filter only reviews with anomaly score > 0.7
+    const trueAnomalies = reviewsWithScores.filter(row => row.anomaly_score > 0.7);
 
     // Classify anomalies by type based on content analysis
     const classifiedAnomalies: AnomalyMetadata[] = trueAnomalies.map(row => {

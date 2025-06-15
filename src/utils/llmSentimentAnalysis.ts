@@ -239,21 +239,31 @@ export class LLMSentimentAnalyzer {
         `${index}:"${text.replace(/[^\w\s]/g, '').substring(0, 80)}"` // Reduced to 80 chars + remove special chars
       ).join(',');
       
-      // EXPLICIT language detection prompt
-      const prompt = `DETECT LANGUAGE and analyze sentiment for each review:
-{${reviewsUltraCompact}}
+      // SIMPLE TEXT FORMAT - no JSON parsing issues
+      const prompt = `Analyze sentiment and language for these reviews:
 
-IMPORTANT: Detect the actual language of each text. Examples:
-- German text → "l":"de"  
-- English text → "l":"en"
-- French text → "l":"fr"
-- Spanish text → "l":"es"
+${texts.map((text, index) => `${index}: ${text.replace(/"/g, "'").substring(0, 80)}`).join('\n')}
 
-Return JSON: {"0":{"s":-0.5,"m":0.8,"l":"de","label":"negative"},"1":{"s":0.3,"m":0.6,"l":"en","label":"positive"},...}`;
+Return each result on a new line in format: INDEX|SENTIMENT|LANGUAGE
+Example:
+0|0.5|en
+1|-0.3|de
+2|0.8|fr
 
-      // Add aggressive timeout for faster failure detection
+SENTIMENT: number from -1 to 1
+LANGUAGE: code like en, de, fr, es, it, etc`;
+
+      // Debug: Log the exact prompt being sent
+      console.log('📤 Prompt sent to OpenAI:');
+      console.log(prompt);
+      console.log('📤 First few reviews being analyzed:');
+      texts.slice(0, 3).forEach((text, i) => {
+        console.log(`   ${i}: "${text.substring(0, 100)}..."`);
+      });
+
+      // Add reasonable timeout for API calls
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('API timeout after 5 seconds')), 5000)
+        setTimeout(() => reject(new Error('API timeout after 15 seconds')), 15000)
       );
 
       const apiPromise = openai.chat.completions.create({
@@ -283,48 +293,99 @@ Return JSON: {"0":{"s":-0.5,"m":0.8,"l":"de","label":"negative"},"1":{"s":0.3,"m
         throw new Error('No response from OpenAI');
       }
 
-      // Clean and parse the response
-      let cleanedContent = content.trim();
-      cleanedContent = cleanedContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      // Debug: Log raw response
+      console.log('📥 Raw OpenAI response content:');
+      console.log(content);
+
+      // Parse the simple text format response
+      console.log('📥 Raw OpenAI response content:', content);
       
-      // Find the main JSON object
-      const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No valid JSON found in response');
+      const analysis: { [key: string]: { s: number; l: string } } = {};
+      
+      try {
+        // Clean the content and extract lines
+        let cleanedContent = content.trim();
+        cleanedContent = cleanedContent.replace(/```\w*\s*/g, '').replace(/```\s*/g, '');
+        
+        const lines = cleanedContent.split('\n').filter(line => line.trim());
+        console.log('📝 Extracted lines:', lines);
+        
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          
+          // Look for pattern: INDEX|SENTIMENT|LANGUAGE
+          const match = trimmedLine.match(/^(\d+)\|(-?\d*\.?\d+)\|([a-zA-Z]{2,3})$/);
+          if (match) {
+            const [, index, sentiment, language] = match;
+            const sentimentScore = parseFloat(sentiment);
+            
+            if (!isNaN(sentimentScore) && sentimentScore >= -1 && sentimentScore <= 1) {
+              analysis[index] = {
+                s: sentimentScore,
+                l: language.toLowerCase()
+              };
+              console.log(`✅ Parsed: ${index} -> sentiment: ${sentimentScore}, language: ${language}`);
+            }
+          }
+        }
+        
+        console.log('🔍 Final parsed analysis:', analysis);
+        
+        // If we didn't get any valid results, fall back
+        if (Object.keys(analysis).length === 0) {
+          console.warn('⚠️ No valid results parsed from response');
+          throw new Error('No valid results parsed');
+        }
+        
+      } catch (parseError) {
+        console.error('❌ Text parsing error:', parseError);
+        console.warn('🔄 Falling back to basic sentiment analysis for this batch');
+        
+        // Return fallback results instead of throwing
+        return texts.map(() => ({
+          score: 0,
+          magnitude: 0.1,
+          label: 'neutral' as const,
+          confidence: 0.1,
+          detectedLanguage: 'en',
+          languageConfidence: 0.5
+        }));
       }
       
-      const analysis = JSON.parse(jsonMatch[0]);
-      
-      // Debug: Log the raw API response for first batch
-      if (texts.length <= 25) { // Only for small batches to avoid spam
+      // Debug: Log the raw API response for first few batches
+      if (texts.length <= 10) { // Only for small batches to avoid spam
         console.log('🔍 Raw OpenAI response:', analysis);
+        console.log('🔍 Batch texts:', texts.map((t, i) => `${i}: "${t.substring(0, 50)}..."`));
       }
       
-      // SIMPLIFIED response parsing for speed
+      // Process the parsed results
       const results: LLMSentimentResult[] = [];
       
       for (let i = 0; i < texts.length; i++) {
         const reviewAnalysis = analysis[i.toString()];
         
-        if (reviewAnalysis && typeof reviewAnalysis.s === 'number') {
-          const detectedLang = typeof reviewAnalysis.l === 'string' ? reviewAnalysis.l : 'en';
+        if (reviewAnalysis && typeof reviewAnalysis.s === 'number' && typeof reviewAnalysis.l === 'string') {
+          const sentimentScore = Math.max(-1, Math.min(1, reviewAnalysis.s));
+          const detectedLang = reviewAnalysis.l.toLowerCase();
           
-          // Debug logging for language detection
-          if (i < 3) { // Only log first 3 for debugging
-            console.log(`🌍 Review ${i}: "${texts[i].substring(0, 50)}..." -> Language: "${detectedLang}"`);
-          }
+          // Debug logging for language detection - show raw API response
+          console.log(`🌍 Review ${i}:`);
+          console.log(`   Text: "${texts[i].substring(0, 80)}..."`);
+          console.log(`   Raw API "l" value:`, reviewAnalysis.l);
+          console.log(`   Detected language:`, detectedLang);
+          console.log(`   Sentiment score:`, sentimentScore);
           
           results.push({
-            score: Math.max(-1, Math.min(1, reviewAnalysis.s)),
-            magnitude: typeof reviewAnalysis.m === 'number' ? Math.max(0, Math.min(1, reviewAnalysis.m)) : Math.abs(reviewAnalysis.s),
-            label: ['negative', 'neutral', 'positive'].includes(reviewAnalysis.label) ? reviewAnalysis.label : 
-                   (reviewAnalysis.s > 0.1 ? 'positive' : reviewAnalysis.s < -0.1 ? 'negative' : 'neutral'),
+            score: sentimentScore,
+            magnitude: Math.abs(sentimentScore),
+            label: sentimentScore > 0.1 ? 'positive' : sentimentScore < -0.1 ? 'negative' : 'neutral',
             confidence: 0.8, // Fixed confidence for speed
             detectedLanguage: detectedLang,
             languageConfidence: 0.9 // Fixed language confidence for speed
           });
         } else {
-          // Fast fallback
+          // Fast fallback for missing results
+          console.warn(`⚠️ No valid analysis for review ${i}, using fallback`);
           results.push({
             score: 0,
             magnitude: 0.1,
@@ -378,7 +439,7 @@ Return JSON: {"0":{"s":-0.5,"m":0.8,"l":"de","label":"negative"},"1":{"s":0.3,"m
   }>> {
     const startTime = Date.now();
     console.log(`🚀 Starting UNLIMITED PARALLEL LLM enhancement for ${data.length} reviews`);
-    console.log(`⚡ EXTREME optimizations: 25 reviews/batch, UNLIMITED parallel, 5s timeout, 80% token reduction`);
+    console.log(`⚡ EXTREME optimizations: 10 reviews/batch, UNLIMITED parallel, 15s timeout, ultra-simple JSON`);
     
     // Clear cache to ensure fresh language detection
     console.log('🗑️ Clearing cache for fresh language detection...');
@@ -441,7 +502,7 @@ Return JSON: {"0":{"s":-0.5,"m":0.8,"l":"de","label":"negative"},"1":{"s":0.3,"m
   // EXTREME batch size optimization for maximum parallelization
   private static getOptimalBatchSize(): number {
     // Even smaller batches for maximum parallelization
-    const baseSize = 25; // ULTRA-SMALL batches for maximum parallel processing
+    const baseSize = 10; // ULTRA-SMALL batches for maximum parallel processing and better JSON parsing
     
     // If response times are very fast (< 1 second), we can increase batch size slightly
     if (this.performanceMetrics.avgResponseTime < 1000 && this.performanceMetrics.successRate > 0.95) {
@@ -453,7 +514,7 @@ Return JSON: {"0":{"s":-0.5,"m":0.8,"l":"de","label":"negative"},"1":{"s":0.3,"m
       return Math.max(10, baseSize - 10); // Decrease to 15-10 for slow/unreliable responses
     }
     
-    return baseSize; // Default 25 (8x smaller than original 200!)
+    return baseSize; // Default 10 (20x smaller than original 200!)
   }
 
   // Update performance metrics

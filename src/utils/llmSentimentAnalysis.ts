@@ -89,45 +89,49 @@ export class LLMSentimentAnalyzer {
     
     console.log(`📊 Cache analysis: ${totalBatches} total batches, ~${estimatedApiCalls} API calls needed`);
 
-    // 🚀 MAXIMUM PARALLELIZATION: Launch ALL batches simultaneously
-    const allBatchPromises: Promise<void>[] = [];
+    // 🚀 CONTROLLED PARALLELIZATION: Process batches with rate limiting
+    const maxConcurrent = 3; // Limit concurrent requests to avoid 429 errors
     let processedBatches = 0;
     
-    console.log(`🔥 Launching ALL ${totalBatches} batches in FULL PARALLEL mode!`);
+    console.log(`🔥 Processing ${totalBatches} batches with ${maxConcurrent} concurrent requests`);
     
-    // Create ALL batch promises at once - no waiting, no groups!
-    for (let i = 0; i < texts.length; i += batchSize) {
-      const batch = texts.slice(i, i + batchSize);
-      const batchStartIndex = i;
-      const batchNumber = Math.floor(i / batchSize) + 1;
+    // Process batches in controlled groups
+    for (let i = 0; i < texts.length; i += batchSize * maxConcurrent) {
+      const batchGroup: Promise<void>[] = [];
       
-      const batchPromise = this.processSingleBatch(
-        batch, 
-        batchStartIndex, 
-        results, 
-        batchNumber, 
-        totalBatches
-      ).then(() => {
-        processedBatches++;
-        const progress = Math.round((processedBatches / totalBatches) * 100);
-        console.log(`✅ Batch ${batchNumber}/${totalBatches} completed (${progress}% done)`);
-      }).catch((error) => {
-        console.error(`❌ Batch ${batchNumber} failed:`, error);
-        // Don't let one batch failure stop others
-      });
+      // Create a group of up to maxConcurrent batches
+      for (let j = 0; j < maxConcurrent && (i + j * batchSize) < texts.length; j++) {
+        const batchStart = i + j * batchSize;
+        const batch = texts.slice(batchStart, batchStart + batchSize);
+        const batchNumber = Math.floor(batchStart / batchSize) + 1;
+        
+        const batchPromise = this.processSingleBatch(
+          batch, 
+          batchStart, 
+          results, 
+          batchNumber, 
+          totalBatches
+        ).then(() => {
+          processedBatches++;
+          const progress = Math.round((processedBatches / totalBatches) * 100);
+          console.log(`✅ Batch ${batchNumber}/${totalBatches} completed (${progress}% done)`);
+        }).catch((error) => {
+          console.error(`❌ Batch ${batchNumber} failed:`, error);
+          // Don't let one batch failure stop others
+        });
+        
+        batchGroup.push(batchPromise);
+      }
       
-      allBatchPromises.push(batchPromise);
+      // Wait for current group to complete before starting next group
+      await Promise.allSettled(batchGroup);
       
-      // Add tiny stagger to avoid overwhelming the API at the exact same moment
-      if (batchNumber > 1) {
-        await new Promise(resolve => setTimeout(resolve, 10)); // Just 10ms stagger
+      // Add delay between groups to respect rate limits
+      if (i + batchSize * maxConcurrent < texts.length) {
+        console.log(`⏳ Waiting 1 second before next batch group...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
-    
-    console.log(`⚡ ALL ${totalBatches} batches launched! Waiting for completion...`);
-    
-    // Wait for ALL batches to complete simultaneously
-    await Promise.allSettled(allBatchPromises);
 
     console.log(`🎉 Parallel processing completed! Processed ${texts.length} reviews`);
     return results;
@@ -353,9 +357,9 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
       }
       
       // Debug: Log the raw API response for first few batches
-      if (texts.length <= 10) { // Only for small batches to avoid spam
+      if (texts.length <= 200) { // Only for batches to avoid spam
         console.log('🔍 Raw OpenAI response:', analysis);
-        console.log('🔍 Batch texts:', texts.map((t, i) => `${i}: "${t.substring(0, 50)}..."`));
+        console.log('🔍 Batch size:', texts.length);
       }
       
       // Process the parsed results
@@ -439,7 +443,7 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
   }>> {
     const startTime = Date.now();
     console.log(`🚀 Starting UNLIMITED PARALLEL LLM enhancement for ${data.length} reviews`);
-    console.log(`⚡ EXTREME optimizations: 10 reviews/batch, UNLIMITED parallel, 15s timeout, ultra-simple JSON`);
+    console.log(`⚡ Rate limit optimizations: 200 reviews/batch, reduced parallel calls, 15s timeout`);
     
     // Clear cache to ensure fresh language detection
     console.log('🗑️ Clearing cache for fresh language detection...');
@@ -502,7 +506,7 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
   // EXTREME batch size optimization for maximum parallelization
   private static getOptimalBatchSize(): number {
     // Even smaller batches for maximum parallelization
-    const baseSize = 10; // ULTRA-SMALL batches for maximum parallel processing and better JSON parsing
+    const baseSize = 200; // LARGE batches to reduce API calls and avoid rate limits
     
     // If response times are very fast (< 1 second), we can increase batch size slightly
     if (this.performanceMetrics.avgResponseTime < 1000 && this.performanceMetrics.successRate > 0.95) {
@@ -514,7 +518,7 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
       return Math.max(10, baseSize - 10); // Decrease to 15-10 for slow/unreliable responses
     }
     
-    return baseSize; // Default 10 (20x smaller than original 200!)
+    return baseSize; // Default 200 (back to original size to reduce API calls)
   }
 
   // Update performance metrics

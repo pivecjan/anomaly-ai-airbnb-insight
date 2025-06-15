@@ -65,17 +65,15 @@ export class LLMSentimentAnalyzer {
     });
   }
 
-  // ULTRA-FAST batch processing with maximum parallelization
+  // 🚀 UNLIMITED PARALLEL PROCESSING - ALL BATCHES AT ONCE!
   static async analyzeBatchSentiment(texts: string[]): Promise<LLMSentimentResult[]> {
     const results: LLMSentimentResult[] = new Array(texts.length);
     const batchSize = this.getOptimalBatchSize(); // Adaptive batch size based on performance
-    const maxConcurrentBatches = 10; // DOUBLED parallel processing for maximum speed
-    const delayBetweenBatchGroups = 50; // MINIMAL delay for maximum throughput
 
-    console.log(`🚀 Starting ULTRA-FAST parallel processing: ${texts.length} reviews`);
+    console.log(`🚀 Starting UNLIMITED PARALLEL processing: ${texts.length} reviews`);
     console.log(`📊 AGGRESSIVE batch size: ${batchSize} (performance: ${Math.round(this.performanceMetrics.avgResponseTime)}ms avg, ${Math.round(this.performanceMetrics.successRate * 100)}% success)`);
-    console.log(`⚡ Using ${maxConcurrentBatches} concurrent API calls + 10s timeout for MAXIMUM speed`);
-    console.log(`🎯 Target: <3 seconds per batch, <30 seconds total for ${Math.ceil(texts.length / batchSize)} batches`);
+    console.log(`⚡ NO LIMITS: ALL ${Math.ceil(texts.length / batchSize)} batches running simultaneously!`);
+    console.log(`🎯 Target: All batches complete in ~10-15 seconds (vs previous 5+ minutes)`);
 
     // Pre-check cache to estimate actual work needed
     const totalBatches = Math.ceil(texts.length / batchSize);
@@ -89,10 +87,13 @@ export class LLMSentimentAnalyzer {
     
     console.log(`📊 Cache analysis: ${totalBatches} total batches, ~${estimatedApiCalls} API calls needed`);
 
-    // Process batches in parallel groups
-    const batchPromises: Promise<void>[] = [];
+    // 🚀 MAXIMUM PARALLELIZATION: Launch ALL batches simultaneously
+    const allBatchPromises: Promise<void>[] = [];
     let processedBatches = 0;
     
+    console.log(`🔥 Launching ALL ${totalBatches} batches in FULL PARALLEL mode!`);
+    
+    // Create ALL batch promises at once - no waiting, no groups!
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
       const batchStartIndex = i;
@@ -108,21 +109,23 @@ export class LLMSentimentAnalyzer {
         processedBatches++;
         const progress = Math.round((processedBatches / totalBatches) * 100);
         console.log(`✅ Batch ${batchNumber}/${totalBatches} completed (${progress}% done)`);
+      }).catch((error) => {
+        console.error(`❌ Batch ${batchNumber} failed:`, error);
+        // Don't let one batch failure stop others
       });
       
-      batchPromises.push(batchPromise);
+      allBatchPromises.push(batchPromise);
       
-      // Process in groups of maxConcurrentBatches for optimal throughput
-      if (batchPromises.length >= maxConcurrentBatches || i + batchSize >= texts.length) {
-        await Promise.all(batchPromises);
-        batchPromises.length = 0; // Clear the array
-        
-        // Minimal delay between batch groups to avoid rate limiting
-        if (i + batchSize < texts.length) {
-          await new Promise(resolve => setTimeout(resolve, delayBetweenBatchGroups));
-        }
+      // Add tiny stagger to avoid overwhelming the API at the exact same moment
+      if (batchNumber > 1) {
+        await new Promise(resolve => setTimeout(resolve, 10)); // Just 10ms stagger
       }
     }
+    
+    console.log(`⚡ ALL ${totalBatches} batches launched! Waiting for completion...`);
+    
+    // Wait for ALL batches to complete simultaneously
+    await Promise.allSettled(allBatchPromises);
 
     console.log(`🎉 Parallel processing completed! Processed ${texts.length} reviews`);
     return results;
@@ -239,9 +242,9 @@ export class LLMSentimentAnalyzer {
 {${reviewsUltraCompact}}
 Return: {"0":{"s":-0.5,"m":0.8,"l":"en","label":"negative"},...}`;
 
-      // Add timeout to prevent hanging
+      // Add aggressive timeout for faster failure detection
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('API timeout after 10 seconds')), 10000)
+        setTimeout(() => reject(new Error('API timeout after 5 seconds')), 5000)
       );
 
       const apiPromise = openai.chat.completions.create({
@@ -353,8 +356,8 @@ Return: {"0":{"s":-0.5,"m":0.8,"l":"en","label":"negative"},...}`;
     llm_confidence: number;
   }>> {
     const startTime = Date.now();
-    console.log(`🚀 Starting ULTRA-FAST LLM enhancement for ${data.length} reviews`);
-    console.log(`⚡ EXTREME optimizations: 50 reviews/batch, 10x parallel, 10s timeout, 80% token reduction`);
+    console.log(`🚀 Starting UNLIMITED PARALLEL LLM enhancement for ${data.length} reviews`);
+    console.log(`⚡ EXTREME optimizations: 25 reviews/batch, UNLIMITED parallel, 5s timeout, 80% token reduction`);
     
     // Set a maximum time limit for the entire process
     const maxProcessingTime = 60000; // 1 minute max
@@ -410,22 +413,22 @@ Return: {"0":{"s":-0.5,"m":0.8,"l":"en","label":"negative"},...}`;
     this.performanceMetrics = { avgResponseTime: 0, successRate: 1 }; // Reset performance metrics
   }
 
-  // ULTRA-AGGRESSIVE batch size optimization for speed
+  // EXTREME batch size optimization for maximum parallelization
   private static getOptimalBatchSize(): number {
-    // Start with much smaller batches for faster responses
-    const baseSize = 50; // Drastically reduced from 200 to 50
+    // Even smaller batches for maximum parallelization
+    const baseSize = 25; // ULTRA-SMALL batches for maximum parallel processing
     
-    // If response times are very fast (< 1 second), we can increase batch size
+    // If response times are very fast (< 1 second), we can increase batch size slightly
     if (this.performanceMetrics.avgResponseTime < 1000 && this.performanceMetrics.successRate > 0.95) {
-      return Math.min(100, baseSize + 25); // Increase to 75-100 for very fast responses
+      return Math.min(40, baseSize + 10); // Increase to 35-40 for very fast responses
     }
     
-    // If response times are slow (> 3 seconds) or success rate is low, decrease batch size even more
-    if (this.performanceMetrics.avgResponseTime > 3000 || this.performanceMetrics.successRate < 0.8) {
-      return Math.max(20, baseSize - 15); // Decrease to 35-20 for slow/unreliable responses
+    // If response times are slow (> 2 seconds) or success rate is low, decrease batch size even more
+    if (this.performanceMetrics.avgResponseTime > 2000 || this.performanceMetrics.successRate < 0.8) {
+      return Math.max(10, baseSize - 10); // Decrease to 15-10 for slow/unreliable responses
     }
     
-    return baseSize; // Default 50 (4x smaller than before)
+    return baseSize; // Default 25 (8x smaller than original 200!)
   }
 
   // Update performance metrics

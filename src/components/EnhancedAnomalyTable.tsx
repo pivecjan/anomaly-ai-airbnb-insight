@@ -21,6 +21,8 @@ interface EnhancedAnomaly {
   anomaly_type: string;
   reason: string;
   detailedReason: string;
+  language?: string;
+  llm_language?: string;
 }
 
 const EnhancedAnomalyTable = () => {
@@ -226,6 +228,26 @@ const EnhancedAnomalyTable = () => {
     return 'bg-blue-100 text-blue-800';
   };
 
+  const formatLanguage = (anomaly: EnhancedAnomaly) => {
+    const lang = anomaly.llm_language || anomaly.language || 'en';
+    // Convert common language codes to readable names
+    const languageNames: Record<string, string> = {
+      'en': 'English',
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'it': 'Italian',
+      'pt': 'Portuguese',
+      'nl': 'Dutch',
+      'ru': 'Russian',
+      'zh': 'Chinese',
+      'ja': 'Japanese',
+      'ko': 'Korean',
+      'ar': 'Arabic'
+    };
+    return languageNames[lang.toLowerCase()] || lang.toUpperCase();
+  };
+
   if (!isDataReady || anomalies.length === 0) {
     return (
       <Card>
@@ -311,6 +333,7 @@ const EnhancedAnomalyTable = () => {
               </TableHead>
               <TableHead>Raw Text Excerpt</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Detected Language</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -332,6 +355,11 @@ const EnhancedAnomalyTable = () => {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">{anomaly.anomaly_type}</Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary" className="text-xs">
+                    {formatLanguage(anomaly)}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <Sheet>
@@ -357,6 +385,10 @@ const EnhancedAnomalyTable = () => {
                         <div>
                           <label className="text-sm font-medium text-gray-500">Date</label>
                           <p>{new Date(anomaly.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Detected Language</label>
+                          <p>{formatLanguage(anomaly)}</p>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-gray-500">Anomaly Type</label>

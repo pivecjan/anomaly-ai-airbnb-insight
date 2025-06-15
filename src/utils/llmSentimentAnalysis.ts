@@ -89,49 +89,45 @@ export class LLMSentimentAnalyzer {
     
     console.log(`📊 Cache analysis: ${totalBatches} total batches, ~${estimatedApiCalls} API calls needed`);
 
-    // 🚀 CONTROLLED PARALLELIZATION: Process batches with rate limiting
-    const maxConcurrent = 3; // Limit concurrent requests to avoid 429 errors
+    // 🚀 MAXIMUM PARALLELIZATION: Launch ALL batches simultaneously
+    const allBatchPromises: Promise<void>[] = [];
     let processedBatches = 0;
     
-    console.log(`🔥 Processing ${totalBatches} batches with ${maxConcurrent} concurrent requests`);
+    console.log(`🔥 Launching ALL ${totalBatches} batches in FULL PARALLEL mode!`);
     
-    // Process batches in controlled groups
-    for (let i = 0; i < texts.length; i += batchSize * maxConcurrent) {
-      const batchGroup: Promise<void>[] = [];
+    // Create ALL batch promises at once - no waiting, no groups!
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize);
+      const batchStartIndex = i;
+      const batchNumber = Math.floor(i / batchSize) + 1;
       
-      // Create a group of up to maxConcurrent batches
-      for (let j = 0; j < maxConcurrent && (i + j * batchSize) < texts.length; j++) {
-        const batchStart = i + j * batchSize;
-        const batch = texts.slice(batchStart, batchStart + batchSize);
-        const batchNumber = Math.floor(batchStart / batchSize) + 1;
-        
-        const batchPromise = this.processSingleBatch(
-          batch, 
-          batchStart, 
-          results, 
-          batchNumber, 
-          totalBatches
-        ).then(() => {
-          processedBatches++;
-          const progress = Math.round((processedBatches / totalBatches) * 100);
-          console.log(`✅ Batch ${batchNumber}/${totalBatches} completed (${progress}% done)`);
-        }).catch((error) => {
-          console.error(`❌ Batch ${batchNumber} failed:`, error);
-          // Don't let one batch failure stop others
-        });
-        
-        batchGroup.push(batchPromise);
-      }
+      const batchPromise = this.processSingleBatch(
+        batch, 
+        batchStartIndex, 
+        results, 
+        batchNumber, 
+        totalBatches
+      ).then(() => {
+        processedBatches++;
+        const progress = Math.round((processedBatches / totalBatches) * 100);
+        console.log(`✅ Batch ${batchNumber}/${totalBatches} completed (${progress}% done)`);
+      }).catch((error) => {
+        console.error(`❌ Batch ${batchNumber} failed:`, error);
+        // Don't let one batch failure stop others
+      });
       
-      // Wait for current group to complete before starting next group
-      await Promise.allSettled(batchGroup);
+      allBatchPromises.push(batchPromise);
       
-      // Add delay between groups to respect rate limits
-      if (i + batchSize * maxConcurrent < texts.length) {
-        console.log(`⏳ Waiting 1 second before next batch group...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Add tiny stagger to avoid overwhelming the API at the exact same moment
+      if (batchNumber > 1) {
+        await new Promise(resolve => setTimeout(resolve, 10)); // Just 10ms stagger
       }
     }
+    
+    console.log(`⚡ ALL ${totalBatches} batches launched! Waiting for completion...`);
+    
+    // Wait for ALL batches to complete simultaneously
+    await Promise.allSettled(allBatchPromises);
 
     console.log(`🎉 Parallel processing completed! Processed ${texts.length} reviews`);
     return results;
@@ -443,7 +439,7 @@ LANGUAGE: code like en, de, fr, es, it, etc`;
   }>> {
     const startTime = Date.now();
     console.log(`🚀 Starting UNLIMITED PARALLEL LLM enhancement for ${data.length} reviews`);
-    console.log(`⚡ Rate limit optimizations: 200 reviews/batch, reduced parallel calls, 15s timeout`);
+    console.log(`⚡ MAXIMUM SPEED: 200 reviews/batch, UNLIMITED parallel calls, 15s timeout`);
     
     // Clear cache to ensure fresh language detection
     console.log('🗑️ Clearing cache for fresh language detection...');

@@ -36,14 +36,15 @@ export class LLMSentimentAnalyzer {
     this.errorCount++;
   }
 
-  // Check cache for a batch of texts
+  // Check cache for a batch of texts (with language detection version)
   private static getCachedResults(texts: string[]): { cached: LLMSentimentResult[], uncached: string[], indices: number[] } {
     const cached: LLMSentimentResult[] = [];
     const uncached: string[] = [];
     const indices: number[] = [];
     
     texts.forEach((text, index) => {
-      const cacheKey = text.substring(0, 100);
+      // Add version suffix to cache key to invalidate old cache without language detection
+      const cacheKey = text.substring(0, 100) + '_v2_lang';
       if (this.analysisCache.has(cacheKey)) {
         cached[index] = this.analysisCache.get(cacheKey)!;
       } else {
@@ -55,10 +56,11 @@ export class LLMSentimentAnalyzer {
     return { cached, uncached, indices };
   }
 
-  // Cache results for a batch
+  // Cache results for a batch (with language detection version)
   private static cacheResults(texts: string[], results: LLMSentimentResult[]): void {
     texts.forEach((text, index) => {
-      const cacheKey = text.substring(0, 100);
+      // Use same versioned cache key
+      const cacheKey = text.substring(0, 100) + '_v2_lang';
       if (results[index]) {
         this.analysisCache.set(cacheKey, results[index]);
       }
@@ -237,11 +239,17 @@ export class LLMSentimentAnalyzer {
         `${index}:"${text.replace(/[^\w\s]/g, '').substring(0, 80)}"` // Reduced to 80 chars + remove special chars
       ).join(',');
       
-      // IMPROVED prompt for accurate language detection
-      const prompt = `Analyze sentiment AND detect language for ${texts.length} reviews:
+      // EXPLICIT language detection prompt
+      const prompt = `DETECT LANGUAGE and analyze sentiment for each review:
 {${reviewsUltraCompact}}
-Return JSON: {"0":{"s":-0.5,"m":0.8,"l":"de","label":"negative"},"1":{"s":0.3,"m":0.6,"l":"en","label":"positive"},...}
-s=sentiment(-1,1), m=magnitude(0,1), l=language_code(en,de,fr,es,it,etc), label=negative/neutral/positive`;
+
+IMPORTANT: Detect the actual language of each text. Examples:
+- German text → "l":"de"  
+- English text → "l":"en"
+- French text → "l":"fr"
+- Spanish text → "l":"es"
+
+Return JSON: {"0":{"s":-0.5,"m":0.8,"l":"de","label":"negative"},"1":{"s":0.3,"m":0.6,"l":"en","label":"positive"},...}`;
 
       // Add aggressive timeout for faster failure detection
       const timeoutPromise = new Promise((_, reject) => 
@@ -286,6 +294,11 @@ s=sentiment(-1,1), m=magnitude(0,1), l=language_code(en,de,fr,es,it,etc), label=
       }
       
       const analysis = JSON.parse(jsonMatch[0]);
+      
+      // Debug: Log the raw API response for first batch
+      if (texts.length <= 25) { // Only for small batches to avoid spam
+        console.log('🔍 Raw OpenAI response:', analysis);
+      }
       
       // SIMPLIFIED response parsing for speed
       const results: LLMSentimentResult[] = [];
@@ -366,6 +379,10 @@ s=sentiment(-1,1), m=magnitude(0,1), l=language_code(en,de,fr,es,it,etc), label=
     const startTime = Date.now();
     console.log(`🚀 Starting UNLIMITED PARALLEL LLM enhancement for ${data.length} reviews`);
     console.log(`⚡ EXTREME optimizations: 25 reviews/batch, UNLIMITED parallel, 5s timeout, 80% token reduction`);
+    
+    // Clear cache to ensure fresh language detection
+    console.log('🗑️ Clearing cache for fresh language detection...');
+    this.clearCache();
     
     // Set a maximum time limit for the entire process
     const maxProcessingTime = 60000; // 1 minute max
